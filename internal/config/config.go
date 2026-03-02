@@ -29,10 +29,11 @@ type Runner struct {
 
 type UploadPar struct {
 	Enabled           bool   `json:"enabled"`
-	Engine            string `json:"engine"` // turbo|classic
+	Engine            string `json:"engine"` // parpar|turbo|classic
 	RedundancyPercent int    `json:"redundancy_percent"` // e.g. 20
 	KeepParityFiles   bool   `json:"keep_parity_files"`
-	Dir               string `json:"dir"` // where to store parity files if KeepParityFiles=true (e.g. /host/inbox/par2)
+	KeepMode          string `json:"keep_mode"` // local|nzb (nzb = upload .par2 and keep only a .par.nzb)
+	Dir               string `json:"dir"` // where to store parity artifacts if KeepParityFiles=true (e.g. /host/inbox/par2)
 }
 
 type Upload struct {
@@ -122,7 +123,7 @@ func Default() Config {
 		Library:     (Library{Enabled: true, UppercaseFolders: true}).withDefaults(),
 		Metadata: (Metadata{}).withDefaults(),
 		Plex:     (Plex{}).withDefaults(),
-		Upload:   Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, Engine: "parpar", RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2"}},
+		Upload:   Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, Engine: "parpar", RedundancyPercent: 20, KeepParityFiles: true, KeepMode: "nzb", Dir: "/host/inbox/par2"}},
 		Rename: Rename{Provider: "filebot", FileBot: FileBot{
 			Enabled:      true,
 			Binary:       "/usr/local/bin/filebot",
@@ -227,6 +228,14 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Upload.Par.KeepParityFiles && cfg.Upload.Par.Dir == "" {
 		cfg.Upload.Par.Dir = "/host/inbox/par2"
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Upload.Par.KeepMode)) {
+	case "", "nzb", "local":
+		if strings.TrimSpace(cfg.Upload.Par.KeepMode) == "" {
+			cfg.Upload.Par.KeepMode = "nzb"
+		}
+	default:
+		cfg.Upload.Par.KeepMode = "nzb"
 	}
 	// Health defaults
 	if strings.TrimSpace(cfg.Health.BackupDir) == "" {

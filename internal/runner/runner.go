@@ -236,6 +236,10 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		// Optional PAR2 generation (staged in /cache, then optionally persisted under /host/inbox/par2)
 		parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
 		parKeep := cfg.Upload.Par.KeepParityFiles && strings.TrimSpace(cfg.Upload.Par.Dir) != ""
+		parKeepMode := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.KeepMode))
+		if parKeepMode == "" {
+			parKeepMode = "nzb"
+		}
 		parStagingDir := filepath.Join(cacheDir, "par-staging", j.ID)
 		var parDir string // where par2 files are generated (staging)
 		if parEnabled {
@@ -420,7 +424,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					}
 					emitProgress(100)
 
-					// Persist PAR2 files (keep) if enabled.
+					// Persist PAR artifacts if enabled.
 					if parKeep && parDir != "" {
 						relDir, err := filepath.Rel(outDir, filepath.Dir(finalNZB))
 						if err != nil {
@@ -428,35 +432,65 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						}
 						keepDir := filepath.Join(strings.TrimSpace(cfg.Upload.Par.Dir), relDir)
 						_ = os.MkdirAll(keepDir, 0o755)
-						entries, _ := os.ReadDir(parDir)
-						moved := 0
-						for _, e := range entries {
-							name := e.Name()
-							if !strings.HasSuffix(strings.ToLower(name), ".par2") {
-								continue
-							}
-							src := filepath.Join(parDir, name)
-							dst := filepath.Join(keepDir, name)
-							_ = os.Remove(dst)
-							if err := os.Rename(src, dst); err == nil {
-								moved++
-								continue
-							}
-							// Cross-filesystem fallback: copy then remove.
-							if in, err := os.Open(src); err == nil {
-								defer in.Close()
-								tmp := dst + ".tmp"
-								_ = os.Remove(tmp)
-								if out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644); err == nil {
-									_, _ = io.Copy(out, in)
-									_ = out.Close()
-									_ = os.Rename(tmp, dst)
-									_ = os.Remove(src)
-									moved++
+
+						if parKeepMode == "nzb" {
+							parNZBStaging := filepath.Join(stagingDir, fmt.Sprintf("%s-%s.par.nzb", base, j.ID))
+							if err := uploadParityDirWithNyuu(ctx, func(line string) {
+								_ = r.jobs.AppendLog(ctx, j.ID, sanitizeLine(line, ng.Pass))
+							}, r.NyuuPath, ng, parDir, parNZBStaging); err != nil {
+								_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par nzb upload failed, keeping local par2: "+err.Error())
+								parKeepMode = "local"
+							} else {
+								parNZBFinal := filepath.Join(keepDir, base+".par.nzb")
+								if _, err := moveNZBStagingToFinal(parNZBStaging, parNZBFinal); err != nil {
+									_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par nzb move failed, keeping local par2: "+err.Error())
+									parKeepMode = "local"
+								} else {
+									entries, _ := os.ReadDir(parDir)
+									removed := 0
+									for _, e := range entries {
+										if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".par2") {
+											continue
+										}
+										if err := os.Remove(filepath.Join(parDir, e.Name())); err == nil {
+											removed++
+										}
+									}
+									_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: kept nzb=%s and removed %d local .par2 file(s)", parNZBFinal, removed))
 								}
 							}
 						}
-						_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: kept %d file(s) in %s", moved, keepDir))
+
+						if parKeepMode != "nzb" {
+							entries, _ := os.ReadDir(parDir)
+							moved := 0
+							for _, e := range entries {
+								name := e.Name()
+								if !strings.HasSuffix(strings.ToLower(name), ".par2") {
+									continue
+								}
+								src := filepath.Join(parDir, name)
+								dst := filepath.Join(keepDir, name)
+								_ = os.Remove(dst)
+								if err := os.Rename(src, dst); err == nil {
+									moved++
+									continue
+								}
+								if in, err := os.Open(src); err == nil {
+									defer in.Close()
+									tmp := dst + ".tmp"
+									_ = os.Remove(tmp)
+									if out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644); err == nil {
+										_, _ = io.Copy(out, in)
+										_ = out.Close()
+										_ = os.Rename(tmp, dst)
+										_ = os.Remove(src)
+										moved++
+									}
+								}
+							}
+							_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: kept %d local .par2 file(s) in %s", moved, keepDir))
+						}
 					}
 
 					_ = r.jobs.SetDone(ctx, j.ID)
@@ -603,6 +637,35 @@ func moveNZBStagingToFinal(stagingPath, finalPath string) (string, error) {
 		_ = os.Remove(stagingPath)
 		return dest, nil
 	}
+}
+
+func uploadParityDirWithNyuu(ctx context.Context, logf func(string), nyuuPath string, ng config.NgPost, parDir, outNZB string) error {
+	if strings.TrimSpace(parDir) == "" || strings.TrimSpace(outNZB) == "" {
+		return fmt.Errorf("par upload: missing input/output path")
+	}
+	args := []string{"-h", ng.Host, "-P", fmt.Sprintf("%d", ng.Port)}
+	if ng.SSL {
+		args = append(args, "-S")
+	}
+	if ng.Connections > 0 {
+		args = append(args, "-n", fmt.Sprintf("%d", ng.Connections))
+	}
+	if ng.Groups != "" {
+		args = append(args, "-g", ng.Groups)
+	}
+	args = append(args,
+		"--subject", "${rand(40)} yEnc ({part}/{parts})",
+		"--nzb-subject", `"{filename}" yEnc ({part}/{parts})`,
+		"--message-id", "${rand(24)}-${rand(12)}@nyuu",
+		"--from", "poster <poster@example.com>",
+	)
+	args = append(args, "-o", outNZB, "-O")
+	args = append(args, "-u", ng.User, "-p", ng.Pass)
+	args = append(args, "-r", "keep", parDir)
+	if logf != nil {
+		logf("par: uploading parity set to Usenet (separate PAR NZB)")
+	}
+	return runCommand(ctx, logf, nyuuPath, args...)
 }
 
 func copyFile(src, dst string) error {
