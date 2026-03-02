@@ -266,9 +266,10 @@ func (r *Runner) runHealthRepair(ctx context.Context, jobID string, cfg config.C
 	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 target mapped: %s -> %s", expectedRel, filepath.Base(outFile)))
 
 	// par2 repair in-place
-	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 repair: %s r %s", "/usr/bin/par2", filepath.Base(parMain)))
+	parCmd := par2Command(cfg)
+	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 repair: %s r %s", parCmd, filepath.Base(parMain)))
 	// IMPORTANT: do not pass an alternate target filename here; let PAR2 use its own indexed target paths.
-	cmd := exec.CommandContext(ctx, "par2", "r", parMain)
+	cmd := exec.CommandContext(ctx, parCmd, "r", parMain)
 	cmd.Dir = workDir
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
@@ -458,13 +459,14 @@ func (r *Runner) healthRegeneratePAR2(ctx context.Context, cfg config.Config, jo
 	}
 	parBase := filepath.Join(stagingDir, stem+".par2")
 	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B/", parBase, mediaPath}
-	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 regenerate: par2 %s", strings.Join(args, " ")))
+	parCmd := par2Command(cfg)
+	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 regenerate: %s %s", parCmd, strings.Join(args, " ")))
 	if err := runCommand(ctx, func(line string) {
 		clean := strings.TrimSpace(line)
 		if clean != "" {
 			_ = r.jobs.AppendLog(ctx, jobID, clean)
 		}
-	}, "par2", args...); err != nil {
+	}, parCmd, args...); err != nil {
 		return err
 	}
 

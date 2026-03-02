@@ -317,6 +317,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 
 			err := error(nil)
 			if parEnabled {
+				parCmd := par2Command(cfg)
 				err = runCommand(ctx, func(line string) {
 					clean := strings.TrimSpace(line)
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
@@ -330,7 +331,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					if clean != "" {
 						_ = r.jobs.AppendLog(ctx, j.ID, clean)
 					}
-				}, "par2", args...)
+				}, parCmd, args...)
 			}
 			stopTick()
 			if !parEnabled {
