@@ -297,7 +297,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				}
 			}
 			if parEnabled {
-				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par2: generating parity"))
+				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: generating parity (engine=%s cmd=%s input=%s)", engine, createCmd, filepath.Base(inputPath)))
 			}
 			// If par2create does not emit percentages, keep UI alive by ticking progress
 			// (avoid looking stuck at 5% for large files).
