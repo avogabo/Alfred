@@ -247,11 +247,13 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			// We still generate parity into /cache (parStagingDir), so we avoid copying the large media file.
 			parBase := filepath.Join(parStagingDir, base)
 			inputPath := p.Path
-			args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
+			createCmd := parCreateCommand(cfg)
+			engine := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.Engine))
+			files := make([]string, 0, 64)
+			isDir := false
 
 			if st, err := os.Stat(inputPath); err == nil && st.IsDir() {
-				// par2 cannot create from a directory path directly; pass a file list relative to base path.
-				files := make([]string, 0, 64)
+				isDir = true
 				_ = filepath.WalkDir(inputPath, func(fp string, d os.DirEntry, err error) error {
 					if err != nil || d == nil {
 						return nil
@@ -270,16 +272,29 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					return nil
 				})
 				if len(files) == 0 {
-					_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par2 skipped: no files found in directory input")
+					_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par2/parpar skipped: no files found in directory input")
 					parEnabled = false
-				} else {
-					args = append(args, "-B/", parBase+".par2")
-					args = append(args, files...)
 				}
-			} else {
-				// Use par2cmdline-compatible interface for single files.
-				// par2 enforces a basepath; set it to the directory containing the source file.
-				args = append(args, "-B/", parBase+".par2", inputPath)
+			}
+
+			var args []string
+			if parEnabled {
+				if engine == "parpar" {
+					// ParPar syntax: parpar -s2000 -r<percent>% -o <base.par2> <inputs...>
+					args = []string{"-s2000", fmt.Sprintf("-r%d%%", cfg.Upload.Par.RedundancyPercent), "-o", parBase + ".par2", "-q"}
+					if isDir {
+						args = append(args, "--recurse", inputPath)
+					} else {
+						args = append(args, inputPath)
+					}
+				} else {
+					args = []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B/", parBase + ".par2"}
+					if isDir {
+						args = append(args, files...)
+					} else {
+						args = append(args, inputPath)
+					}
+				}
 			}
 			if parEnabled {
 				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par2: generating parity"))
@@ -317,7 +332,6 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 
 			err := error(nil)
 			if parEnabled {
-				parCmd := par2Command(cfg)
 				err = runCommand(ctx, func(line string) {
 					clean := strings.TrimSpace(line)
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
@@ -331,7 +345,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					if clean != "" {
 						_ = r.jobs.AppendLog(ctx, j.ID, clean)
 					}
-				}, parCmd, args...)
+				}, createCmd, args...)
 			}
 			stopTick()
 			if !parEnabled {

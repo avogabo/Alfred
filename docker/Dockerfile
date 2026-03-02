@@ -50,6 +50,13 @@ COPY --from=build /go/bin/nzb-repair /usr/local/bin/nzb-repair
 # Install turbo par2 tools (par2create/par2/...) overriding base package when present
 COPY --from=par2build /out/usr/local/bin/ /usr/local/bin/
 
+# ---- ParPar (very fast PAR2 creation) ----
+ARG PARPAR_VERSION=v0.4.5
+RUN curl -L -o /tmp/parpar.xz "https://github.com/animetosho/ParPar/releases/download/${PARPAR_VERSION}/parpar-${PARPAR_VERSION}-linux-static-amd64.xz" \
+  && xz -d -c /tmp/parpar.xz > /usr/local/bin/parpar \
+  && chmod +x /usr/local/bin/parpar \
+  && rm -f /tmp/parpar.xz
+
 # ---- ngpost (bundled AppImage contents) ----
 # We bundle the extracted squashfs-root to avoid system Qt deps.
 ARG NGPOST_VERSION=v4.16

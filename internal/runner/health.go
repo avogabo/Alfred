@@ -458,8 +458,12 @@ func (r *Runner) healthRegeneratePAR2(ctx context.Context, cfg config.Config, jo
 		return err
 	}
 	parBase := filepath.Join(stagingDir, stem+".par2")
+	engine := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.Engine))
+	parCmd := parCreateCommand(cfg)
 	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B/", parBase, mediaPath}
-	parCmd := par2Command(cfg)
+	if engine == "parpar" {
+		args = []string{"-s2000", fmt.Sprintf("-r%d%%", cfg.Upload.Par.RedundancyPercent), "-o", parBase, "-q", mediaPath}
+	}
 	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 regenerate: %s %s", parCmd, strings.Join(args, " ")))
 	if err := runCommand(ctx, func(line string) {
 		clean := strings.TrimSpace(line)

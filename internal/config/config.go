@@ -122,7 +122,7 @@ func Default() Config {
 		Library:     (Library{Enabled: true, UppercaseFolders: true}).withDefaults(),
 		Metadata: (Metadata{}).withDefaults(),
 		Plex:     (Plex{}).withDefaults(),
-		Upload:   Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, Engine: "turbo", RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2"}},
+		Upload:   Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, Engine: "parpar", RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2"}},
 		Rename: Rename{Provider: "filebot", FileBot: FileBot{
 			Enabled:      true,
 			Binary:       "/usr/local/bin/filebot",
@@ -215,12 +215,12 @@ func Load(path string) (Config, error) {
 	cfg.Rename.FileBot.Action = "test"
 	// Upload PAR defaults
 	switch strings.ToLower(strings.TrimSpace(cfg.Upload.Par.Engine)) {
-	case "", "turbo", "classic":
+	case "", "parpar", "turbo", "classic":
 		if strings.TrimSpace(cfg.Upload.Par.Engine) == "" {
-			cfg.Upload.Par.Engine = "turbo"
+			cfg.Upload.Par.Engine = "parpar"
 		}
 	default:
-		cfg.Upload.Par.Engine = "turbo"
+		cfg.Upload.Par.Engine = "parpar"
 	}
 	if cfg.Upload.Par.RedundancyPercent <= 0 {
 		cfg.Upload.Par.RedundancyPercent = 20
