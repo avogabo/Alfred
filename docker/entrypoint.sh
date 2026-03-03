@@ -5,6 +5,18 @@ CFG="${ALFRED_CONFIG:-/config/config.json}"
 RCLONE_CFG="/tmp/rclone-alfred.conf"
 ALF_PID=""
 
+# Persist FileBot runtime state and license across container recreations.
+export FILEBOT_HOME="${FILEBOT_HOME:-/config/filebot}"
+
+init_filebot_license() {
+  local lpath="/config/filebot/license.psm"
+  mkdir -p "$FILEBOT_HOME" /config/filebot >/dev/null 2>&1 || true
+  if [ -x /usr/local/bin/filebot ] && [ -f "$lpath" ]; then
+    echo "[entrypoint] filebot: activating license from $lpath (home=$FILEBOT_HOME)"
+    /usr/local/bin/filebot --license "$lpath" >/tmp/filebot-license.log 2>&1 || true
+  fi
+}
+
 start_alfred() {
   /usr/local/bin/alfrededr -fuse=false -config "$CFG" &
   ALF_PID=$!
@@ -104,6 +116,7 @@ mount_webdav_if_enabled() {
   echo "[entrypoint] webdav mounted at $mpath from $url (host-visible via bind propagation)"
 }
 
+init_filebot_license
 start_alfred
 if ! wait_alfred_live; then
   echo "[entrypoint] Alfred failed to become healthy"

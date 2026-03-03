@@ -63,11 +63,8 @@ func ResolveWithFileBot(ctx context.Context, cfg config.Config, filename string)
 		return FileBotResult{}, false
 	}
 
-	lpath := strings.TrimSpace(rn.FileBot.LicensePath)
-	if lpath != "" {
-		_, _ = runFB(ctx, bin, "--license", lpath)
-	}
-
+	// Do not run --license on each resolve call.
+	// License activation is handled at container startup and should persist under /config/filebot.
 	out, _ := runFB(ctx, bin, "-rename", fake, "--db", db, "--lang", lang, "--format", format, "--action", "test")
 	m := reFBTo.FindStringSubmatch(out)
 	if len(m) != 2 {
