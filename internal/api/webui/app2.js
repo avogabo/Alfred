@@ -368,8 +368,10 @@ async function refreshList(kind) {
     : await apiGet(`/api/v1/hostfs/list?path=${encodeURIComponent(path)}`);
   const list = document.getElementById(listId);
   list.innerHTML = '';
+  const filterText = (document.getElementById(isAuto ? 'autoFilter' : 'manFilter')?.value || '').trim().toLowerCase();
 
   for (const e of (data.entries || [])) {
+    if (filterText && !String(e.name || '').toLowerCase().includes(filterText)) continue;
     const row = el('div', { class: 'listRow' });
     const icon = e.is_dir ? 'DIR' : 'FILE';
     row.appendChild(el('div', { class: 'name' }, [
@@ -606,7 +608,11 @@ async function refreshLogsJobs() {
   box.innerHTML = '';
   try {
     const jobs = await apiGet('/api/v1/jobs');
+    const filterText = (document.getElementById('logsFilter')?.value || '').trim().toLowerCase();
     for (const j of jobs) {
+      const pathTxt = _safe((j.params || {}).path || '').toLowerCase();
+      const typeTxt = _safe(j.type).toLowerCase();
+      if (filterText && !pathTxt.includes(filterText) && !typeTxt.includes(filterText) && !_safe(j.id).toLowerCase().includes(filterText)) continue;
       const row = el('div', { class: 'listRow' });
       row.style.gridTemplateColumns = '90px 120px 110px 1fr 110px';
 
@@ -1123,8 +1129,10 @@ async function refreshImport() {
   const data = await apiGet(`/api/v1/hostfs/list?path=${encodeURIComponent(impPath)}`);
   const list = document.getElementById('impList');
   list.innerHTML = '';
+  const filterText = (document.getElementById('impFilter')?.value || '').trim().toLowerCase();
 
   for (const e of (data.entries || [])) {
+    if (filterText && !String(e.name || '').toLowerCase().includes(filterText)) continue;
     const row = el('div', { class: 'listRow' });
     const icon = e.is_dir ? 'DIR' : 'NZB';
     row.appendChild(el('div', { class: 'name' }, [
@@ -1221,12 +1229,16 @@ window.addEventListener('DOMContentLoaded', () => {
   // Controls
   document.getElementById('btnAutoRefresh').onclick = () => refreshList('auto').catch(err => setStatus('autoStatus', String(err)));
   document.getElementById('btnAutoUp').onclick = () => goUp('auto');
+  const autoFilter = document.getElementById('autoFilter');
+  if (autoFilter) autoFilter.oninput = () => refreshList('auto').catch(err => setStatus('autoStatus', String(err)));
 
   // Import page
   if (document.getElementById('btnImpRefresh')) {
     document.getElementById('btnImpRefresh').onclick = () => refreshImport().catch(err => setStatus('impStatus', String(err)));
     document.getElementById('btnImpUp').onclick = () => goUpImport();
     document.getElementById('btnImpEnqueue').onclick = () => enqueueSelectedImport().catch(err => alert(err));
+    const impFilter = document.getElementById('impFilter');
+    if (impFilter) impFilter.oninput = () => refreshImport().catch(err => setStatus('impStatus', String(err)));
 
     // Upload NZB
     const up = document.getElementById('impUpload');
@@ -1369,6 +1381,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // Logs
   if (document.getElementById('btnLogsRefresh')) {
     document.getElementById('btnLogsRefresh').onclick = () => refreshLogsJobs().catch(() => {});
+    const logsFilter = document.getElementById('logsFilter');
+    if (logsFilter) logsFilter.oninput = () => refreshLogsJobs().catch(() => {});
   }
 
   // Load imports + review initially

@@ -140,7 +140,7 @@
         <b>AlfredEDR</b>
       </div>
       <div class="hdrRight">
-        <span class="pill" id="buildVersionPill">v1.6.9</span>
+        <span class="pill" id="buildVersionPill">v1.6.25</span>
         <button class="btn" id="btnRestartTop">Reiniciar (Restart)</button>
       </div>
     </header>
@@ -200,6 +200,7 @@
               <div class="crumbs" id="autoCrumbs"></div>
               <button class="btn" id="btnAutoUp">Arriba (Up)</button>
               <button class="btn" id="btnAutoRefresh">Actualizar (Refresh)</button>
+              <input id="autoFilter" placeholder="Filtrar nombre..." style="min-width:220px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--text);" />
               <span class="muted" id="autoStatus"></span>
             </div>
 
@@ -310,6 +311,7 @@
               <button class="btn" id="btnImpUp">Arriba (Up)</button>
               <button class="btn" id="btnImpRefresh">Actualizar (Refresh)</button>
               <button class="btn primary" id="btnImpEnqueue" disabled>Importar seleccionado (Import selected)</button>
+              <input id="impFilter" placeholder="Filtrar nombre..." style="min-width:220px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--text);" />
               <span class="muted" id="impStatus"></span>
             </div>
           </div>
@@ -643,6 +645,7 @@
             </div>
             <div class="row">
               <button class="btn" id="btnLogsRefresh">Actualizar (Refresh)</button>
+              <input id="logsFilter" placeholder="Filtrar job/path..." style="min-width:220px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--text);" />
               <span class="muted" id="logsStatus"></span>
             </div>
           </div>
@@ -677,7 +680,7 @@
     </div>
   </div>
 
-  <script src="/webui/app2.js?v=1.6.9"></script>
+  <script src="/webui/app2.js?v=1.6.25"></script>
   <script src="/webui/upload2.js"></script>
 
   <div id="compatGhost" style="display:none">
