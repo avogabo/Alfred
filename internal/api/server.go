@@ -168,20 +168,20 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 				}
 			}
 			state := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("state")))
-			items, err := s.jobs.List(r.Context(), limit)
+			var (
+				items []jobs.Job
+				err   error
+			)
+			switch state {
+			case "queued", "running", "done", "failed":
+				items, err = s.jobs.ListByState(r.Context(), jobs.State(state), limit)
+			default:
+				items, err = s.jobs.List(r.Context(), limit)
+			}
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 				return
-			}
-			if state != "" {
-				filtered := make([]jobs.Job, 0, len(items))
-				for _, it := range items {
-					if strings.ToLower(strings.TrimSpace(string(it.State))) == state {
-						filtered = append(filtered, it)
-					}
-				}
-				items = filtered
 			}
 			_ = json.NewEncoder(w).Encode(items)
 		default:

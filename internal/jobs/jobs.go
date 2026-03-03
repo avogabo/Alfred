@@ -125,7 +125,22 @@ func (s *Store) List(ctx context.Context, limit int) ([]Job, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanJobs(rows)
+}
 
+func (s *Store) ListByState(ctx context.Context, state State, limit int) ([]Job, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.db.SQL.QueryContext(ctx, `SELECT id,type,state,created_at,updated_at,payload_json,error FROM jobs WHERE state=? ORDER BY updated_at DESC LIMIT ?`, string(state), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanJobs(rows)
+}
+
+func scanJobs(rows interface{ Next() bool; Scan(dest ...any) error; Err() error }) ([]Job, error) {
 	out := make([]Job, 0)
 	for rows.Next() {
 		var (
