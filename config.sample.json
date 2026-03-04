@@ -57,10 +57,8 @@
     "provider": "nyuu",
     "par": {
       "enabled": true,
-      "engine": "parpar",
       "redundancy_percent": 20,
       "keep_parity_files": true,
-      "keep_mode": "nzb",
       "dir": "/host/inbox/par2"
     }
   },

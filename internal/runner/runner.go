@@ -42,40 +42,35 @@ func New(j *jobs.Store) *Runner {
 }
 
 func (r *Runner) Run(ctx context.Context) {
-	workers := r.UploadConcurrency
-	if workers < 1 {
-		workers = 1
-	}
+	semUpload := make(chan struct{}, r.UploadConcurrency)
+	t := time.NewTicker(r.PollInterval)
+	defer t.Stop()
 
-	for i := 0; i < workers; i++ {
-		go func() {
-			t := time.NewTicker(r.PollInterval)
-			defer t.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-t.C:
-					job, err := r.jobs.ClaimNext(ctx)
-					if err != nil {
-						if err == jobs.ErrNoQueuedJobs {
-							continue
-						}
-						continue
-					}
-
-					switch job.Type {
-					case jobs.TypeUpload:
-						r.runUpload(ctx, job)
-					default:
-						r.runImport(ctx, job)
-					}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			job, err := r.jobs.ClaimNext(ctx)
+			if err != nil {
+				if err == jobs.ErrNoQueuedJobs {
+					continue
 				}
+				continue
 			}
-		}()
-	}
 
-	<-ctx.Done()
+			switch job.Type {
+			case jobs.TypeUpload:
+				semUpload <- struct{}{}
+				go func(j *jobs.Job) {
+					defer func() { <-semUpload }()
+					r.runUpload(ctx, j)
+				}(job)
+			default:
+				go r.runImport(ctx, job)
+			}
+		}
+	}
 }
 
 func (r *Runner) runImport(ctx context.Context, j *jobs.Job) {
@@ -241,10 +236,6 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		// Optional PAR2 generation (staged in /cache, then optionally persisted under /host/inbox/par2)
 		parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
 		parKeep := cfg.Upload.Par.KeepParityFiles && strings.TrimSpace(cfg.Upload.Par.Dir) != ""
-		parKeepMode := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.KeepMode))
-		if parKeepMode == "" {
-			parKeepMode = "nzb"
-		}
 		parStagingDir := filepath.Join(cacheDir, "par-staging", j.ID)
 		var parDir string // where par2 files are generated (staging)
 		if parEnabled {
@@ -256,18 +247,11 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			// We still generate parity into /cache (parStagingDir), so we avoid copying the large media file.
 			parBase := filepath.Join(parStagingDir, base)
 			inputPath := p.Path
-			createCmd := parCreateCommand(cfg)
-			engine := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.Engine))
-			// Force PAR creation through par2cmdline-turbo even when config says "parpar".
-			if engine == "parpar" {
-				engine = "turbo"
-				createCmd = "par2"
-			}
-			files := make([]string, 0, 64)
-			isDir := false
+			args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
 
 			if st, err := os.Stat(inputPath); err == nil && st.IsDir() {
-				isDir = true
+				// par2 cannot create from a directory path directly; pass a file list relative to base path.
+				files := make([]string, 0, 64)
 				_ = filepath.WalkDir(inputPath, func(fp string, d os.DirEntry, err error) error {
 					if err != nil || d == nil {
 						return nil
@@ -286,45 +270,19 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					return nil
 				})
 				if len(files) == 0 {
-					_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par2/parpar skipped: no files found in directory input")
+					_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par2 skipped: no files found in directory input")
 					parEnabled = false
-				}
-			}
-
-			var (
-				args   []string
-				cmdDir string
-			)
-			if parEnabled {
-				if engine == "parpar" {
-					// ParPar syntax: parpar -s2000 -r<percent>% -o <base.par2> <inputs...>
-					args = []string{"-s2000", fmt.Sprintf("-r%d%%", cfg.Upload.Par.RedundancyPercent), "-o", parBase + ".par2", "-q"}
-					if isDir {
-						args = append(args, "--recurse", inputPath)
-					} else {
-						args = append(args, inputPath)
-					}
 				} else {
-					// par2cmdline-turbo: run from input folder and pass relative paths so PAR
-					// does not embed host-specific absolute roots (portable repair anywhere).
-					args = []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B/", parBase + ".par2"}
-					if isDir {
-						cmdDir = inputPath
-						for _, fp := range files {
-							rel, err := filepath.Rel(inputPath, fp)
-							if err != nil {
-								continue
-							}
-							args = append(args, rel)
-						}
-					} else {
-						cmdDir = filepath.Dir(inputPath)
-						args = append(args, filepath.Base(inputPath))
-					}
+					args = append(args, "-B/", parBase+".par2")
+					args = append(args, files...)
 				}
+			} else {
+				// Use par2cmdline-compatible interface for single files.
+				// par2 enforces a basepath; set it to the directory containing the source file.
+				args = append(args, "-B/", parBase+".par2", inputPath)
 			}
 			if parEnabled {
-				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: generating parity (engine=%s cmd=%s input=%s)", engine, createCmd, filepath.Base(inputPath)))
+				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par2: generating parity"))
 			}
 			// If par2create does not emit percentages, keep UI alive by ticking progress
 			// (avoid looking stuck at 5% for large files).
@@ -359,7 +317,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 
 			err := error(nil)
 			if parEnabled {
-				err = runCommandInDir(ctx, cmdDir, func(line string) {
+				err = runCommand(ctx, func(line string) {
 					clean := strings.TrimSpace(line)
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 						if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
@@ -372,7 +330,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					if clean != "" {
 						_ = r.jobs.AppendLog(ctx, j.ID, clean)
 					}
-				}, createCmd, args...)
+				}, "par2", args...)
 			}
 			stopTick()
 			if !parEnabled {
@@ -447,7 +405,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					}
 					emitProgress(100)
 
-					// Persist PAR artifacts if enabled.
+					// Persist PAR2 files (keep) if enabled.
 					if parKeep && parDir != "" {
 						relDir, err := filepath.Rel(outDir, filepath.Dir(finalNZB))
 						if err != nil {
@@ -455,65 +413,35 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						}
 						keepDir := filepath.Join(strings.TrimSpace(cfg.Upload.Par.Dir), relDir)
 						_ = os.MkdirAll(keepDir, 0o755)
-
-						if parKeepMode == "nzb" {
-							parNZBStaging := filepath.Join(stagingDir, fmt.Sprintf("%s-%s.par.nzb", base, j.ID))
-							if err := uploadParityDirWithNyuu(ctx, func(line string) {
-								_ = r.jobs.AppendLog(ctx, j.ID, sanitizeLine(line, ng.Pass))
-							}, r.NyuuPath, ng, parDir, parNZBStaging); err != nil {
-								_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par nzb upload failed, keeping local par2: "+err.Error())
-								parKeepMode = "local"
-							} else {
-								parNZBFinal := filepath.Join(keepDir, base+".par.nzb")
-								if _, err := moveNZBStagingToFinal(parNZBStaging, parNZBFinal); err != nil {
-									_ = r.jobs.AppendLog(ctx, j.ID, "WARN: par nzb move failed, keeping local par2: "+err.Error())
-									parKeepMode = "local"
-								} else {
-									entries, _ := os.ReadDir(parDir)
-									removed := 0
-									for _, e := range entries {
-										if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".par2") {
-											continue
-										}
-										if err := os.Remove(filepath.Join(parDir, e.Name())); err == nil {
-											removed++
-										}
-									}
-									_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: kept nzb=%s and removed %d local .par2 file(s)", parNZBFinal, removed))
-								}
+						entries, _ := os.ReadDir(parDir)
+						moved := 0
+						for _, e := range entries {
+							name := e.Name()
+							if !strings.HasSuffix(strings.ToLower(name), ".par2") {
+								continue
 							}
-						}
-
-						if parKeepMode != "nzb" {
-							entries, _ := os.ReadDir(parDir)
-							moved := 0
-							for _, e := range entries {
-								name := e.Name()
-								if !strings.HasSuffix(strings.ToLower(name), ".par2") {
-									continue
-								}
-								src := filepath.Join(parDir, name)
-								dst := filepath.Join(keepDir, name)
-								_ = os.Remove(dst)
-								if err := os.Rename(src, dst); err == nil {
+							src := filepath.Join(parDir, name)
+							dst := filepath.Join(keepDir, name)
+							_ = os.Remove(dst)
+							if err := os.Rename(src, dst); err == nil {
+								moved++
+								continue
+							}
+							// Cross-filesystem fallback: copy then remove.
+							if in, err := os.Open(src); err == nil {
+								defer in.Close()
+								tmp := dst + ".tmp"
+								_ = os.Remove(tmp)
+								if out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644); err == nil {
+									_, _ = io.Copy(out, in)
+									_ = out.Close()
+									_ = os.Rename(tmp, dst)
+									_ = os.Remove(src)
 									moved++
-									continue
-								}
-								if in, err := os.Open(src); err == nil {
-									defer in.Close()
-									tmp := dst + ".tmp"
-									_ = os.Remove(tmp)
-									if out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644); err == nil {
-										_, _ = io.Copy(out, in)
-										_ = out.Close()
-										_ = os.Rename(tmp, dst)
-										_ = os.Remove(src)
-										moved++
-									}
 								}
 							}
-							_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: kept %d local .par2 file(s) in %s", moved, keepDir))
 						}
+						_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("par: kept %d file(s) in %s", moved, keepDir))
 					}
 
 					_ = r.jobs.SetDone(ctx, j.ID)
@@ -660,35 +588,6 @@ func moveNZBStagingToFinal(stagingPath, finalPath string) (string, error) {
 		_ = os.Remove(stagingPath)
 		return dest, nil
 	}
-}
-
-func uploadParityDirWithNyuu(ctx context.Context, logf func(string), nyuuPath string, ng config.NgPost, parDir, outNZB string) error {
-	if strings.TrimSpace(parDir) == "" || strings.TrimSpace(outNZB) == "" {
-		return fmt.Errorf("par upload: missing input/output path")
-	}
-	args := []string{"-h", ng.Host, "-P", fmt.Sprintf("%d", ng.Port)}
-	if ng.SSL {
-		args = append(args, "-S")
-	}
-	if ng.Connections > 0 {
-		args = append(args, "-n", fmt.Sprintf("%d", ng.Connections))
-	}
-	if ng.Groups != "" {
-		args = append(args, "-g", ng.Groups)
-	}
-	args = append(args,
-		"--subject", "${rand(40)} yEnc ({part}/{parts})",
-		"--nzb-subject", `"{filename}" yEnc ({part}/{parts})`,
-		"--message-id", "${rand(24)}-${rand(12)}@nyuu",
-		"--from", "poster <poster@example.com>",
-	)
-	args = append(args, "-o", outNZB, "-O")
-	args = append(args, "-u", ng.User, "-p", ng.Pass)
-	args = append(args, "-r", "keep", parDir)
-	if logf != nil {
-		logf("par: uploading parity set to Usenet (separate PAR NZB)")
-	}
-	return runCommand(ctx, logf, nyuuPath, args...)
 }
 
 func copyFile(src, dst string) error {

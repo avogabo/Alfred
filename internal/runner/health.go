@@ -266,10 +266,9 @@ func (r *Runner) runHealthRepair(ctx context.Context, jobID string, cfg config.C
 	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 target mapped: %s -> %s", expectedRel, filepath.Base(outFile)))
 
 	// par2 repair in-place
-	parCmd := par2Command(cfg)
-	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 repair: %s r %s", parCmd, filepath.Base(parMain)))
+	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 repair: %s r %s", "/usr/bin/par2", filepath.Base(parMain)))
 	// IMPORTANT: do not pass an alternate target filename here; let PAR2 use its own indexed target paths.
-	cmd := exec.CommandContext(ctx, parCmd, "r", parMain)
+	cmd := exec.CommandContext(ctx, "par2", "r", parMain)
 	cmd.Dir = workDir
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
@@ -458,19 +457,14 @@ func (r *Runner) healthRegeneratePAR2(ctx context.Context, cfg config.Config, jo
 		return err
 	}
 	parBase := filepath.Join(stagingDir, stem+".par2")
-	engine := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.Engine))
-	parCmd := parCreateCommand(cfg)
 	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B/", parBase, mediaPath}
-	if engine == "parpar" {
-		args = []string{"-s2000", fmt.Sprintf("-r%d%%", cfg.Upload.Par.RedundancyPercent), "-o", parBase, "-q", mediaPath}
-	}
-	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 regenerate: %s %s", parCmd, strings.Join(args, " ")))
+	_ = r.jobs.AppendLog(ctx, jobID, fmt.Sprintf("health: par2 regenerate: par2 %s", strings.Join(args, " ")))
 	if err := runCommand(ctx, func(line string) {
 		clean := strings.TrimSpace(line)
 		if clean != "" {
 			_ = r.jobs.AppendLog(ctx, jobID, clean)
 		}
-	}, parCmd, args...); err != nil {
+	}, "par2", args...); err != nil {
 		return err
 	}
 
