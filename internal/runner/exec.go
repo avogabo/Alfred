@@ -11,7 +11,15 @@ import (
 
 // runCommand runs a command and streams stdout/stderr line-by-line to onLine.
 func runCommand(ctx context.Context, onLine func(string), name string, args ...string) error {
+	return runCommandInDir(ctx, "", onLine, name, args...)
+}
+
+// runCommandInDir runs a command from cwd (if provided) and streams stdout/stderr line-by-line.
+func runCommandInDir(ctx context.Context, cwd string, onLine func(string), name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
+	if cwd != "" {
+		cmd.Dir = cwd
+	}
 	cmd.Env = append(os.Environ(),
 		"LANG=C.UTF-8",
 		"LC_ALL=C.UTF-8",

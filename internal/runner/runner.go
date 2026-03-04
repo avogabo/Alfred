@@ -291,7 +291,10 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				}
 			}
 
-			var args []string
+			var (
+				args   []string
+				cmdDir string
+			)
 			if parEnabled {
 				if engine == "parpar" {
 					// ParPar syntax: parpar -s2000 -r<percent>% -o <base.par2> <inputs...>
@@ -302,11 +305,21 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						args = append(args, inputPath)
 					}
 				} else {
+					// par2cmdline-turbo: run from input folder and pass relative paths so PAR
+					// does not embed host-specific absolute roots (portable repair anywhere).
 					args = []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B/", parBase + ".par2"}
 					if isDir {
-						args = append(args, files...)
+						cmdDir = inputPath
+						for _, fp := range files {
+							rel, err := filepath.Rel(inputPath, fp)
+							if err != nil {
+								continue
+							}
+							args = append(args, rel)
+						}
 					} else {
-						args = append(args, inputPath)
+						cmdDir = filepath.Dir(inputPath)
+						args = append(args, filepath.Base(inputPath))
 					}
 				}
 			}
@@ -346,7 +359,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 
 			err := error(nil)
 			if parEnabled {
-				err = runCommand(ctx, func(line string) {
+				err = runCommandInDir(ctx, cmdDir, func(line string) {
 					clean := strings.TrimSpace(line)
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 						if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
