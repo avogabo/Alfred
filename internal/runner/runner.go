@@ -258,6 +258,11 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			inputPath := p.Path
 			createCmd := parCreateCommand(cfg)
 			engine := strings.ToLower(strings.TrimSpace(cfg.Upload.Par.Engine))
+			// Force PAR creation through par2cmdline-turbo even when config says "parpar".
+			if engine == "parpar" {
+				engine = "turbo"
+				createCmd = "par2"
+			}
 			files := make([]string, 0, 64)
 			isDir := false
 
