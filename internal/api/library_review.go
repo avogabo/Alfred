@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avogabo/AlfredEDR/internal/importer"
 	"github.com/avogabo/AlfredEDR/internal/library"
 )
 
@@ -233,6 +234,9 @@ func (s *Server) registerLibraryReviewRoutes() {
 		// also remove any dismissed flag for this file
 		_, _ = s.jobs.DB().SQL.ExecContext(r.Context(), `DELETE FROM library_review_dismissed WHERE import_id=? AND file_idx=?`, req.ImportID, req.FileIdx)
 
+		// force immediate re-resolve so UI changes instantly
+		_ = importer.New(s.jobs).EnrichLibraryResolved(r.Context(), s.Config(), req.ImportID)
+
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "import_id": req.ImportID, "file_idx": req.FileIdx})
 	})
 
@@ -318,6 +322,11 @@ func (s *Server) registerLibraryReviewRoutes() {
 				count++
 				_, _ = s.jobs.DB().SQL.ExecContext(r.Context(), `DELETE FROM library_review_dismissed WHERE import_id=? AND file_idx=?`, req.ImportID, idx)
 			}
+		}
+
+		if count > 0 {
+			// force immediate re-resolve so UI changes instantly
+			_ = importer.New(s.jobs).EnrichLibraryResolved(r.Context(), s.Config(), req.ImportID)
 		}
 
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "import_id": req.ImportID, "updated": count})
