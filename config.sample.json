@@ -71,7 +71,7 @@
     "pass": "",
     "connections": 20,
     "threads": 2,
-    "groups": "alt.binaries.test",
+    "groups": "alt.binaries.dc,alt.binaries.etc,es.binaries.bd",
     "output_dir": "/host/inbox/nzb",
     "tmp_dir": "",
     "obfuscate": true
