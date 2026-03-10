@@ -900,9 +900,9 @@ async function saveUploadSettings() {
     cfg.watch.nzb.dir = _val('setWatchNZBDir');
     cfg.watch.nzb.recursive = _bool('setWatchNZBRecursive');
 
-    // Provider fixed for now
+    // Provider fixed to nyuu
     cfg.upload = cfg.upload || {};
-    cfg.upload.provider = 'ngpost';
+    cfg.upload.provider = 'nyuu';
 
     // NNTP upload settings (ngpost section)
     cfg.ngpost = cfg.ngpost || {};
