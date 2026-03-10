@@ -118,6 +118,10 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 				return
 			}
+			
+			// Hard-override to nyuu to prevent ngpost misconfiguration
+			next.Upload.Provider = "nyuu"
+			
 			// Persist to disk and apply in-memory
 			if err := config.Save(s.cfgPath, next); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
