@@ -624,11 +624,19 @@ func buildRawNZBPath(cfg config.Config, inputPath, rawRoot, qualityHint string) 
 			seriesTitle = strings.TrimSpace(stripSeasonFromName(baseName))
 			if seriesTitle == "" {
 				parent := filepath.Base(filepath.Dir(inputPath))
-				seriesTitle = strings.TrimSpace(stripSeasonFromName(parent))
+				pg := library.GuessFromFilename(parent)
+				seriesTitle = strings.TrimSpace(pg.Title)
+				if g.Year <= 0 && pg.Year > 0 {
+					g.Year = pg.Year
+				}
 			}
 		}
 		if seriesTitle == "" {
 			seriesTitle = g.Title
+		}
+		// avoid duplicated year in nzb names, e.g. "3 caminos (2021) (2021)"
+		if g.Year > 0 {
+			seriesTitle = strings.TrimSpace(strings.ReplaceAll(seriesTitle, fmt.Sprintf("(%d)", g.Year), ""))
 		}
 		seriesName := safe(seriesTitle)
 		year := g.Year
