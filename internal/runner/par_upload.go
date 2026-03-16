@@ -49,6 +49,7 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: Generando PAR (Generating PAR)")
 	parStagingDir := filepath.Join(cacheDir, "par-staging", j.ID)
 	_ = os.MkdirAll(parStagingDir, 0o755)
+	defer os.RemoveAll(parStagingDir)
 
 	parBase := filepath.Join(parStagingDir, p.BaseName)
 	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
