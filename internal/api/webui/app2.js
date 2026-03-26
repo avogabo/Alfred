@@ -845,6 +845,8 @@ async function loadUploadSettings() {
   document.getElementById('setAltMountAPIKey').value = am.api_key || '';
   document.getElementById('setAltMountUser').value = am.user || '';
   document.getElementById('setAltMountPass').value = am.pass || '';
+  document.getElementById('setAltMountNzbRootLocal').value = am.nzb_root_local || '/host/inbox/nzb';
+  document.getElementById('setAltMountNzbRootRemote').value = am.nzb_root_remote || '';
 
   // TMDB
   const t = ((cfg.metadata || {}).tmdb || {});
@@ -948,6 +950,8 @@ async function saveUploadSettings() {
     cfg.altmount.api_key = _val('setAltMountAPIKey');
     cfg.altmount.user = _val('setAltMountUser');
     cfg.altmount.pass = _val('setAltMountPass');
+    cfg.altmount.nzb_root_local = _val('setAltMountNzbRootLocal');
+    cfg.altmount.nzb_root_remote = _val('setAltMountNzbRootRemote');
 
     // TMDB
     cfg.metadata = cfg.metadata || {};

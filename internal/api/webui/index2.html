@@ -412,7 +412,15 @@
                   <input id="setAltMountPass" type="password" style="min-width:180px; margin-left:8px" />
                 </label>
               </div>
-              <div class="muted" style="margin-top:10px">Alfred mantiene renombrado y estructura; AltMount hará importación, mount y streaming.</div>
+              <div class="row" style="margin-top:8px">
+                <label class="muted">Raíz NZB en Alfred
+                  <input id="setAltMountNzbRootLocal" style="min-width:280px; margin-left:8px" placeholder="/host/inbox/nzb" />
+                </label>
+                <label class="muted">Raíz NZB en AltMount
+                  <input id="setAltMountNzbRootRemote" style="min-width:280px; margin-left:8px" placeholder="/mnt/.../inbox/nzb" />
+                </label>
+              </div>
+              <div class="muted" style="margin-top:10px">Alfred mantiene renombrado y estructura; AltMount hará importación, mount y streaming. Las rutas se traducen de forma configurable entre contenedores.</div>
             </div>
 
             <div class="list" style="padding:12px">

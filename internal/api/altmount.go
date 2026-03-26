@@ -45,17 +45,25 @@ func (s *Server) enqueueImportToAltMount(ctx context.Context, cfg config.Config,
 	}
 
 	relativePath := ""
-	root := strings.TrimSpace(cfg.Watch.NZB.Dir)
-	if root == "" {
-		root = strings.TrimSpace(cfg.Paths.NzbInbox)
+	localRoot := strings.TrimSpace(am.NzbRootLocal)
+	if localRoot == "" {
+		localRoot = strings.TrimSpace(cfg.Watch.NZB.Dir)
 	}
-	if root != "" {
-		if rel, err := filepath.Rel(root, nzbPath); err == nil && !strings.HasPrefix(rel, "..") {
+	if localRoot == "" {
+		localRoot = strings.TrimSpace(cfg.Paths.NzbInbox)
+	}
+	if localRoot != "" {
+		if rel, err := filepath.Rel(localRoot, nzbPath); err == nil && !strings.HasPrefix(rel, "..") {
 			relativePath = filepath.ToSlash(rel)
 		}
 	}
+	remotePath := nzbPath
+	remoteRoot := strings.TrimSpace(am.NzbRootRemote)
+	if remoteRoot != "" && relativePath != "" {
+		remotePath = filepath.ToSlash(filepath.Join(remoteRoot, relativePath))
+	}
 
-	payload := altMountImportRequest{FilePath: nzbPath, RelativePath: relativePath}
+	payload := altMountImportRequest{FilePath: remotePath, RelativePath: relativePath}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
