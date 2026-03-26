@@ -48,16 +48,6 @@ function _num(v) {
   return m ? Number(m[0]) : 0;
 }
 
-function updateDLStreamsHint() {
-  const connEl = document.getElementById('setDL_CONN');
-  const preEl = document.getElementById('setDL_PREFETCH');
-  const hint = document.getElementById('dlStreamsHint');
-  if (!connEl || !preEl || !hint) return;
-  const conn = _num(connEl.value || connEl.placeholder || 0);
-  const pre = _num(preEl.value || preEl.placeholder || 0);
-  const streams = (conn > 0 && pre > 0) ? Math.max(1, Math.floor(conn / pre)) : 0;
-  hint.textContent = `Streams simultáneos estimados: ~${streams}`;
-}
 
 async function refreshBackupsList() {
   const sel = document.getElementById('setBackupsRestoreName');
@@ -245,7 +235,7 @@ function fmtSize(n) {
 let __uploadTimer = null;
 let __logsLoadedOnce = false;
 function showPage(name) {
-  for (const id of ['library','upload','import','settings','logs']) {
+  for (const id of ['upload','import','settings','logs']) {
     const page = document.getElementById('page_' + id);
     if (page) page.classList.toggle('hide', id !== name);
   }
@@ -287,7 +277,6 @@ let AUTO_ROOT = '/mount/library';
 let MAN_ROOT = '/mount/library-manual';
 let autoPath = AUTO_ROOT;
 let manPath = MAN_ROOT;
-let manualDirId = 'root';
 
 async function initLibraryRoots() {
   // Prefer server-provided roots (matches cfg.paths.mount_point).
@@ -850,16 +839,12 @@ async function loadUploadSettings() {
 
   // Download NNTP
   const d = (cfg.download || {});
-  document.getElementById('setDL_ENABLED').checked = !!d.enabled;
-  document.getElementById('setDL_HOST').value = d.host || '';
-  document.getElementById('setDL_PORT').value = (d.port != null) ? d.port : 563;
-  document.getElementById('setDL_SSL').checked = (d.ssl !== false);
-  document.getElementById('setDL_USER').value = d.user || '';
-  document.getElementById('setDL_PASS').value = d.pass || '';
-  document.getElementById('setDL_CONN').value = (d.connections != null) ? d.connections : 20;
-  document.getElementById('setDL_PREFETCH').value = (d.prefetch_segments != null) ? d.prefetch_segments : 8;
-  updateDLStreamsHint();
-  setTimeout(updateDLStreamsHint, 0);
+  const am = cfg.altmount || {};
+  document.getElementById('setAltMountEnabled').checked = !!am.enabled;
+  document.getElementById('setAltMountBaseURL').value = am.base_url || 'http://altmount:8080';
+  document.getElementById('setAltMountAPIKey').value = am.api_key || '';
+  document.getElementById('setAltMountUser').value = am.user || '';
+  document.getElementById('setAltMountPass').value = am.pass || '';
 
   // TMDB
   const t = ((cfg.metadata || {}).tmdb || {});
@@ -957,14 +942,12 @@ async function saveUploadSettings() {
 
     // Download NNTP
     cfg.download = cfg.download || {};
-    cfg.download.enabled = _bool('setDL_ENABLED');
-    cfg.download.host = _val('setDL_HOST');
-    cfg.download.port = _int('setDL_PORT', 563);
-    cfg.download.ssl = _bool('setDL_SSL');
-    cfg.download.user = _val('setDL_USER');
-    cfg.download.pass = _val('setDL_PASS');
-    cfg.download.connections = _int('setDL_CONN', 20);
-    cfg.download.prefetch_segments = _int('setDL_PREFETCH', 8);
+    cfg.altmount = cfg.altmount || {};
+    cfg.altmount.enabled = _bool('setAltMountEnabled');
+    cfg.altmount.base_url = _val('setAltMountBaseURL');
+    cfg.altmount.api_key = _val('setAltMountAPIKey');
+    cfg.altmount.user = _val('setAltMountUser');
+    cfg.altmount.pass = _val('setAltMountPass');
 
     // TMDB
     cfg.metadata = cfg.metadata || {};
@@ -1373,10 +1356,7 @@ window.addEventListener('DOMContentLoaded', () => {
   refreshList('auto').catch(err => setStatus('autoStatus', String(err)));
 
   // Download tuning hint
-  const dlConn = document.getElementById('setDL_CONN');
-  const dlPref = document.getElementById('setDL_PREFETCH');
-  if (dlConn) dlConn.addEventListener('input', updateDLStreamsHint);
-  if (dlPref) dlPref.addEventListener('input', updateDLStreamsHint);
+  return;
 
   // Imports UI
   if (document.getElementById('btnImportsRefresh')) {

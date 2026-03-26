@@ -236,6 +236,17 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			return
 		}
+		cfg := s.Config()
+		if cfg.AltMount.Enabled {
+			resp, err := s.enqueueImportToAltMount(r.Context(), cfg, strings.TrimSpace(payload.Path))
+			if err != nil {
+				w.WriteHeader(http.StatusBadGateway)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "delegated": true, "altmount": resp})
+			return
+		}
 		job, err := s.jobs.Enqueue(r.Context(), jobs.TypeImport, payload)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

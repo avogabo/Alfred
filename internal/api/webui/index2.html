@@ -176,14 +176,7 @@
     <div class="main">
       <nav>
         <div class="navTitle">Menú</div>
-        <div class="navItem active" data-page="library">
-          <div class="icon">📚</div>
-          <div>
-            <div><b>Biblioteca</b></div>
-            <div class="muted" style="font-size:12px">Explorador (Explorer)</div>
-          </div>
-        </div>
-        <div class="navItem" data-page="upload">
+        <div class="navItem active" data-page="upload">
           <div class="icon">⬆</div>
           <div>
             <div><b>Subida</b></div>
@@ -214,91 +207,6 @@
       </nav>
 
       <div class="work">
-        <!-- Library page -->
-        <section id="page_library">
-          <div class="split">
-            <div>
-              <h2 class="sectionTitle">Biblioteca (Library)</h2>
-              <div class="muted">Vista de <b>library</b> (FUSE).</div>
-              <div class="muted" style="margin-top:6px">NOTA: El montaje FUSE se usará solo para enlazar con aplicaciones ARR. Para la reproducción usar el montaje WebDAV: <span class="mono">http://ipdelservidor:1517/webdav</span></div>
-            </div>
-</div>
-
-          <div id="autoPane">
-                                    <div class="row" style="margin-top:10px">
-              <div class="crumbs" id="autoCrumbs"></div>
-              <button class="btn" id="btnAutoUp">Arriba (Up)</button>
-              <button class="btn" id="btnAutoRefresh">Actualizar (Refresh)</button>
-              <input id="autoFilter" placeholder="Filtrar nombre..." style="min-width:220px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--text);" />
-              <span class="muted" id="autoStatus"></span>
-            </div>
-
-            <div class="grid">
-              <div class="list">
-                <div class="listHeader" style="grid-template-columns: 1fr 110px 190px 70px;">
-                  <div>Nombre (Name)</div>
-                  <div class="mono">Size</div>
-                  <div class="mono">ModTime</div>
-                  <div>Acción</div>
-                </div>
-                <div id="autoList"></div>
-              </div>
-            </div>
-
-            <div id="reviewBox" class="list" style="padding:12px; display:none">
-              <div class="row" style="justify-content:space-between">
-                <div>
-                  <b>⚠ Pendiente de revisión (Needs review)</b>
-                  <div class="muted" style="margin-top:4px">Películas donde el auto-match falló. Corrige aquí y se reflejará en <b>library</b> (para Plex).</div>
-                </div>
-                <button class="btn" id="btnReviewRefresh">Actualizar (Refresh)</button>
-              </div>
-
-              <div class="grid" style="margin-top:10px">
-                <div class="list">
-                  <div class="listHeader">
-                    <div>Archivo (File)</div>
-                    <div class="mono">Guess</div>
-                    <div class="mono">Acción</div>
-                  </div>
-                  <div id="reviewList"></div>
-                </div>
-              </div>
-
-              <div class="grid" style="margin-top:12px">
-                <div class="list" style="padding:12px">
-                  <div class="row">
-                    <b>Corregir película (Fix movie)</b>
-                    <span class="muted" id="fixSel">(selecciona un archivo arriba)</span>
-                  </div>
-                  <div class="row" style="margin-top:10px">
-                    <label class="muted">Título (Title)
-                      <input id="fixTitle" style="min-width:260px; margin-left:8px" placeholder="Avatar" />
-                    </label>
-                    <label class="muted">Año (Year)
-                      <input id="fixYear" type="number" style="width:110px; margin-left:8px" placeholder="2009" />
-                    </label>
-                    <label class="muted">Calidad (Quality)
-                      <select id="fixQuality" style="min-width:140px; margin-left:8px">
-                        <option value="1080">1080</option>
-                        <option value="2160">2160 (4K)</option>
-                        <option value="custom">Otro… (custom)</option>
-                      </select>
-                    </label>
-                    <label class="muted" id="fixQualityCustomWrap" style="display:none">Custom
-                      <input id="fixQualityCustom" style="min-width:160px; margin-left:8px" placeholder="REMUX-2160" />
-                    </label>
-                    <label class="muted"><input type="checkbox" id="fixApplyAll" /> Aplicar a todo el NZB/import (Apply to all)</label>
-                    <button class="btn primary" id="btnFixApply">Aplicar (Apply)</button>
-                    <span class="muted" id="fixStatus"></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
         <!-- Upload page placeholder -->
         <section id="page_upload" class="hide">
           <div class="split">
@@ -472,7 +380,7 @@
 
             <div class="list" style="padding:12px">
               <b>Importación</b>
-              <div class="muted" style="margin-top:6px">Control del watcher NZB + datos NNTP de descarga (streaming/import).</div>
+              <div class="muted" style="margin-top:6px">Control del watcher NZB y conexión con AltMount para delegar importación/montaje.</div>
 
               <div class="row" style="margin-top:12px">
                 <label class="muted"><input type="checkbox" id="setWatchNZBEnabled" /> Vigilancia automática</label>
@@ -484,40 +392,27 @@
                 <input type="checkbox" id="setWatchNZBRecursive" checked style="display:none" />
               </div>
 
-              <div class="row" style="margin-top:12px">
-                <label class="muted"><input type="checkbox" id="setDL_ENABLED" /> Activar descarga (Enable)</label>
+              <div class="row" style="margin-top:14px">
+                <b>Conexión AltMount</b>
               </div>
-
               <div class="row" style="margin-top:8px">
-                <label class="muted">Host
-                  <input id="setDL_HOST" style="min-width:240px; margin-left:8px" placeholder="news.example.com" />
+                <label class="muted"><input type="checkbox" id="setAltMountEnabled" /> Activar integración</label>
+                <label class="muted">Base URL
+                  <input id="setAltMountBaseURL" style="min-width:320px; margin-left:8px" placeholder="http://altmount:8080" />
                 </label>
-                <label class="muted">Puerto (Port)
-                  <input id="setDL_PORT" type="number" style="width:110px; margin-left:8px" placeholder="563" />
-                </label>
-                <label class="muted"><input type="checkbox" id="setDL_SSL" checked /> SSL</label>
               </div>
-
               <div class="row" style="margin-top:8px">
-                <label class="muted">Usuario (User)
-                  <input id="setDL_USER" style="min-width:220px; margin-left:8px" />
+                <label class="muted">API Key
+                  <input id="setAltMountAPIKey" type="password" style="min-width:240px; margin-left:8px" />
                 </label>
-                <label class="muted">Password (Pass)
-                  <input id="setDL_PASS" type="password" style="min-width:220px; margin-left:8px" />
+                <label class="muted">Usuario
+                  <input id="setAltMountUser" style="min-width:180px; margin-left:8px" />
                 </label>
-              </div>
-
-              <div class="row" style="margin-top:8px">
-                <label class="muted">Conexiones (Connections)
-                  <input id="setDL_CONN" type="number" style="width:110px; margin-left:8px" placeholder="20" />
-                </label>
-                <label class="muted">Prefetch segmentos (Prefetch)
-                  <input id="setDL_PREFETCH" type="number" style="width:110px; margin-left:8px" placeholder="50" />
+                <label class="muted">Password
+                  <input id="setAltMountPass" type="password" style="min-width:180px; margin-left:8px" />
                 </label>
               </div>
-              <div id="dlStreamsHint" class="muted" style="margin-top:6px">Streams simultáneos estimados: ~0</div>
-
-              <div class="muted" style="margin-top:10px">Nota: se usa en los mounts FUSE al abrir/leer un archivo (Read triggers download).</div>
+              <div class="muted" style="margin-top:10px">Alfred mantiene renombrado y estructura; AltMount hará importación, mount y streaming.</div>
             </div>
 
             <div class="list" style="padding:12px">

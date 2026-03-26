@@ -83,6 +83,14 @@ type WebDAVMount struct {
 	MountPath string `json:"mount_path"`
 }
 
+type AltMount struct {
+	Enabled bool   `json:"enabled"`
+	BaseURL string `json:"base_url"`
+	APIKey  string `json:"api_key"`
+	User    string `json:"user"`
+	Pass    string `json:"pass"`
+}
+
 type Config struct {
 	Server Server `json:"server"`
 	Paths  Paths  `json:"paths"`
@@ -91,6 +99,7 @@ type Config struct {
 	NgPost      NgPost           `json:"ngpost"`
 	Download    DownloadProvider `json:"download"`
 	WebDAVMount WebDAVMount      `json:"webdav_mount"`
+	AltMount    AltMount         `json:"altmount"`
 
 	Library  Library      `json:"library"`
 	Metadata Metadata     `json:"metadata"`
@@ -118,6 +127,7 @@ func Default() Config {
 		NgPost:      NgPost{Enabled: false, Port: 563, SSL: true, Connections: 20, Threads: 2, Groups: "alt.binaries.dc,alt.binaries.etc,es.binaries.bd", OutputDir: "/host/inbox/nzb", Obfuscate: true},
 		Download:    DownloadProvider{Enabled: false, Port: 563, SSL: true, Connections: 20, PrefetchSegments: 50},
 		WebDAVMount: WebDAVMount{Enabled: false, URL: "http://127.0.0.1:1516/webdav", MountPath: "/host/mount/library"},
+		AltMount:    AltMount{Enabled: false, BaseURL: "http://altmount:8080", APIKey: "", User: "", Pass: ""},
 		Library:     (Library{Enabled: true, UppercaseFolders: true}).withDefaults(),
 		Metadata: (Metadata{}).withDefaults(),
 		Plex:     (Plex{}).withDefaults(),
