@@ -10,7 +10,7 @@ Pensado para que **Plex apunte a `library-auto`**.
 ```yaml
 services:
   alfrededr:
-    image: ghcr.io/avogabo/alfrededr:latest
+    image: ghcr.io/avogabo/alfred:latest
     container_name: alfrededr
     restart: unless-stopped
     ports:

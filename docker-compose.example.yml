@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    container_name: AlfredEDR
+    container_name: Alfred
     environment:
       - PORT=8080
     ports:

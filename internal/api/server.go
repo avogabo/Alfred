@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -237,8 +238,13 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 			return
 		}
 		cfg := s.Config()
+		p := strings.TrimSpace(payload.Path)
+		if p != "" && !strings.HasPrefix(p, "/host/") {
+			p = filepath.Clean(filepath.Join(cfg.Paths.HostRoot, strings.TrimPrefix(p, "/")))
+		}
+		payload.Path = p
 		if cfg.AltMount.Enabled {
-			resp, err := s.enqueueImportToAltMount(r.Context(), cfg, strings.TrimSpace(payload.Path))
+			resp, err := s.enqueueImportToAltMount(r.Context(), cfg, payload.Path)
 			if err != nil {
 				w.WriteHeader(http.StatusBadGateway)
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
