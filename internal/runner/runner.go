@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avogabo/AlfredEDR/internal/api"
 	"github.com/avogabo/AlfredEDR/internal/config"
 	"github.com/avogabo/AlfredEDR/internal/fusefs"
 	"github.com/avogabo/AlfredEDR/internal/importer"
@@ -113,6 +114,23 @@ func (r *Runner) runImport(ctx context.Context, j *jobs.Job) {
 	if r.GetConfig != nil {
 		cfg = r.GetConfig()
 	}
+
+	if cfg.AltMount.Enabled {
+		resp, err := api.DelegateImportToAltMount(ctx, cfg, p.Path)
+		if err != nil {
+			msg := err.Error()
+			_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
+			_ = r.jobs.SetFailed(ctx, j.ID, msg)
+			return
+		}
+		_ = r.jobs.AppendLog(ctx, j.ID, "delegated to AltMount")
+		if resp != nil && resp.Data.Message != "" {
+			_ = r.jobs.AppendLog(ctx, j.ID, resp.Data.Message)
+		}
+		_ = r.jobs.SetDone(ctx, j.ID)
+		return
+	}
+
 	imp := importer.New(r.jobs)
 	files, bytes, err := imp.ImportNZB(ctx, j.ID, p.Path)
 	if err != nil {

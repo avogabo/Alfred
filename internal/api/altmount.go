@@ -30,7 +30,7 @@ type altMountImportResponse struct {
 	Details string `json:"details"`
 }
 
-func (s *Server) enqueueImportToAltMount(ctx context.Context, cfg config.Config, nzbPath string) (*altMountImportResponse, error) {
+func DelegateImportToAltMount(ctx context.Context, cfg config.Config, nzbPath string) (*altMountImportResponse, error) {
 	am := cfg.AltMount
 	if !am.Enabled {
 		return nil, fmt.Errorf("altmount integration disabled")
@@ -105,4 +105,8 @@ func (s *Server) enqueueImportToAltMount(ctx context.Context, cfg config.Config,
 		return nil, fmt.Errorf("altmount import failed: %s", msg)
 	}
 	return &out, nil
+}
+
+func (s *Server) enqueueImportToAltMount(ctx context.Context, cfg config.Config, nzbPath string) (*altMountImportResponse, error) {
+	return DelegateImportToAltMount(ctx, cfg, nzbPath)
 }
