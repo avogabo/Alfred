@@ -16,8 +16,8 @@ import (
 )
 
 type altMountImportRequest struct {
-	FilePath     string `json:"file_path"`
-	RelativePath string `json:"relative_path,omitempty"`
+	FilePath     string  `json:"file_path"`
+	RelativePath *string `json:"relative_path,omitempty"`
 }
 
 type altMountImportResponse struct {
@@ -30,7 +30,7 @@ type altMountImportResponse struct {
 	Details string `json:"details"`
 }
 
-func DelegateImportToAltMount(ctx context.Context, cfg config.Config, nzbPath string) (*altMountImportResponse, error) {
+func DelegateImportToAltMount(ctx context.Context, cfg config.Config, nzbPath string, relativePath *string) (*altMountImportResponse, error) {
 	am := cfg.AltMount
 	if !am.Enabled {
 		return nil, fmt.Errorf("altmount integration disabled")
@@ -44,7 +44,7 @@ func DelegateImportToAltMount(ctx context.Context, cfg config.Config, nzbPath st
 		return nil, fmt.Errorf("altmount api_key missing")
 	}
 
-	relativePath := ""
+	derivedRelative := ""
 	localRoot := strings.TrimSpace(am.NzbRootLocal)
 	if localRoot == "" {
 		localRoot = strings.TrimSpace(cfg.Watch.NZB.Dir)
@@ -54,13 +54,16 @@ func DelegateImportToAltMount(ctx context.Context, cfg config.Config, nzbPath st
 	}
 	if localRoot != "" {
 		if rel, err := filepath.Rel(localRoot, nzbPath); err == nil && !strings.HasPrefix(rel, "..") {
-			relativePath = filepath.ToSlash(rel)
+			derivedRelative = filepath.ToSlash(rel)
 		}
 	}
 	remotePath := nzbPath
 	remoteRoot := strings.TrimSpace(am.NzbRootRemote)
-	if remoteRoot != "" && relativePath != "" {
-		remotePath = filepath.ToSlash(filepath.Join(remoteRoot, relativePath))
+	if remoteRoot != "" && derivedRelative != "" {
+		remotePath = filepath.ToSlash(filepath.Join(remoteRoot, derivedRelative))
+	}
+	if relativePath == nil && derivedRelative != "" {
+		relativePath = &derivedRelative
 	}
 
 	payload := altMountImportRequest{FilePath: remotePath, RelativePath: relativePath}
@@ -108,5 +111,5 @@ func DelegateImportToAltMount(ctx context.Context, cfg config.Config, nzbPath st
 }
 
 func (s *Server) enqueueImportToAltMount(ctx context.Context, cfg config.Config, nzbPath string) (*altMountImportResponse, error) {
-	return DelegateImportToAltMount(ctx, cfg, nzbPath)
+	return DelegateImportToAltMount(ctx, cfg, nzbPath, nil)
 }

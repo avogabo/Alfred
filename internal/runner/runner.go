@@ -116,14 +116,27 @@ func (r *Runner) runImport(ctx context.Context, j *jobs.Job) {
 	}
 
 	if cfg.AltMount.Enabled {
-		resp, err := api.DelegateImportToAltMount(ctx, cfg, p.Path)
+		relativePath, prepErr := prepareRelativePathForAltMount(ctx, cfg, r.jobs, j.ID, p.Path)
+		if prepErr != nil {
+			msg := prepErr.Error()
+			_ = r.jobs.AppendLog(ctx, j.ID, "ERROR preparing rename/structure for AltMount: "+msg)
+			_ = r.jobs.SetFailed(ctx, j.ID, msg)
+			return
+		}
+		resp, err := api.DelegateImportToAltMount(ctx, cfg, p.Path, relativePath)
 		if err != nil {
 			msg := err.Error()
 			_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
 			_ = r.jobs.SetFailed(ctx, j.ID, msg)
 			return
 		}
+		if err := cleanupPreparedImport(ctx, r.jobs, j.ID); err != nil {
+			_ = r.jobs.AppendLog(ctx, j.ID, "WARN cleanup prepared import: "+err.Error())
+		}
 		_ = r.jobs.AppendLog(ctx, j.ID, "delegated to AltMount")
+		if relativePath != nil {
+			_ = r.jobs.AppendLog(ctx, j.ID, "target path: "+*relativePath)
+		}
 		if resp != nil && resp.Data.Message != "" {
 			_ = r.jobs.AppendLog(ctx, j.ID, resp.Data.Message)
 		}
