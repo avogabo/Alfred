@@ -31,7 +31,8 @@ type UploadPar struct {
 	Enabled           bool   `json:"enabled"`
 	RedundancyPercent int    `json:"redundancy_percent"` // e.g. 20
 	KeepParityFiles   bool   `json:"keep_parity_files"`
-	Dir               string `json:"dir"` // where to store parity files if KeepParityFiles=true (e.g. /host/inbox/par2)
+	Dir               string `json:"dir"`             // where to store parity files if KeepParityFiles=true (e.g. /host/inbox/par2)
+	MediaPathMode     string `json:"media_path_mode"` // local | rclone
 }
 
 type Upload struct {
@@ -84,13 +85,13 @@ type WebDAVMount struct {
 }
 
 type AltMount struct {
-	Enabled        bool   `json:"enabled"`
-	BaseURL        string `json:"base_url"`
-	APIKey         string `json:"api_key"`
-	User           string `json:"user"`
-	Pass           string `json:"pass"`
-	NzbRootLocal   string `json:"nzb_root_local"`
-	NzbRootRemote  string `json:"nzb_root_remote"`
+	Enabled       bool   `json:"enabled"`
+	BaseURL       string `json:"base_url"`
+	APIKey        string `json:"api_key"`
+	User          string `json:"user"`
+	Pass          string `json:"pass"`
+	NzbRootLocal  string `json:"nzb_root_local"`
+	NzbRootRemote string `json:"nzb_root_remote"`
 }
 
 type Config struct {
@@ -131,9 +132,9 @@ func Default() Config {
 		WebDAVMount: WebDAVMount{Enabled: false, URL: "http://127.0.0.1:1516/webdav", MountPath: "/host/mount/library"},
 		AltMount:    AltMount{Enabled: false, BaseURL: "http://altmount:8080", APIKey: "", User: "", Pass: "", NzbRootLocal: "/host/inbox/nzb", NzbRootRemote: ""},
 		Library:     (Library{Enabled: true, UppercaseFolders: true}).withDefaults(),
-		Metadata: (Metadata{}).withDefaults(),
-		Plex:     (Plex{}).withDefaults(),
-		Upload:   Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2"}},
+		Metadata:    (Metadata{}).withDefaults(),
+		Plex:        (Plex{}).withDefaults(),
+		Upload:      Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2", MediaPathMode: "local"}},
 		Rename: Rename{Provider: "filebot", FileBot: FileBot{
 			Enabled:      true,
 			Binary:       "/usr/local/bin/filebot",
@@ -230,6 +231,10 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Upload.Par.KeepParityFiles && cfg.Upload.Par.Dir == "" {
 		cfg.Upload.Par.Dir = "/host/inbox/par2"
+	}
+	cfg.Upload.Par.MediaPathMode = strings.ToLower(strings.TrimSpace(cfg.Upload.Par.MediaPathMode))
+	if cfg.Upload.Par.MediaPathMode == "" {
+		cfg.Upload.Par.MediaPathMode = "local"
 	}
 	// Health defaults
 	if strings.TrimSpace(cfg.Health.BackupDir) == "" {

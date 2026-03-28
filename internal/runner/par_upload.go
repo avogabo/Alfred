@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,84 @@ import (
 	"github.com/avogabo/AlfredEDR/internal/config"
 	"github.com/avogabo/AlfredEDR/internal/jobs"
 )
+
+func prepareParLocalInput(inputPath string, localRoot string) (string, int, error) {
+	st, err := os.Stat(inputPath)
+	if err != nil {
+		return "", 0, err
+	}
+	if !st.IsDir() {
+		dst := filepath.Join(localRoot, filepath.Base(inputPath))
+		if err := copyFilePreserve(inputPath, dst); err != nil {
+			return "", 0, err
+		}
+		return dst, 1, nil
+	}
+	filesCopied := 0
+	baseName := filepath.Base(inputPath)
+	if baseName == "." || baseName == "/" || baseName == "" {
+		baseName = "input"
+	}
+	dstRoot := filepath.Join(localRoot, baseName)
+	if err := filepath.WalkDir(inputPath, func(src string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil || d == nil {
+			return walkErr
+		}
+		name := d.Name()
+		if strings.HasPrefix(name, ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, err := filepath.Rel(inputPath, src)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(dstRoot, rel)
+		if d.IsDir() {
+			return os.MkdirAll(dst, 0o755)
+		}
+		if err := copyFilePreserve(src, dst); err != nil {
+			return err
+		}
+		filesCopied++
+		return nil
+	}); err != nil {
+		return "", filesCopied, err
+	}
+	return dstRoot, filesCopied, nil
+}
+
+func copyFilePreserve(src string, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	st, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(dst, st.Mode().Perm()); err != nil {
+		return err
+	}
+	return os.Chtimes(dst, time.Now(), st.ModTime())
+}
 
 func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	_ = r.jobs.AppendLog(ctx, j.ID, "starting PAR2 generation and upload job")
@@ -32,7 +111,7 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	if r.GetConfig != nil {
 		cfg = r.GetConfig()
 	}
-	
+
 	parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
 	if !parEnabled {
 		_ = r.jobs.AppendLog(ctx, j.ID, "par generation is disabled in config")
@@ -44,7 +123,7 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	if strings.TrimSpace(cacheDir) == "" {
 		cacheDir = "/cache"
 	}
-	
+
 	// Phase 1: Generate PAR2
 	_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: Generando PAR (Generating PAR)")
 	parStagingDir := filepath.Join(cacheDir, "par-staging", j.ID)
@@ -54,9 +133,29 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	parBase := filepath.Join(parStagingDir, p.BaseName)
 	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
 
-	if st, err := os.Stat(p.InputPath); err == nil && st.IsDir() {
+	workInputPath := p.InputPath
+	cleanupPath := ""
+	if strings.EqualFold(strings.TrimSpace(cfg.Upload.Par.MediaPathMode), "rclone") {
+		localRoot := filepath.Join(cacheDir, "par-input", j.ID)
+		_ = os.MkdirAll(localRoot, 0o755)
+		cleanupPath = localRoot
+		_ = r.jobs.AppendLog(ctx, j.ID, "media_path_mode=rclone; copiando input a cache local antes de generar PAR")
+		copiedPath, copiedCount, copyErr := prepareParLocalInput(p.InputPath, localRoot)
+		if copyErr != nil {
+			_ = os.RemoveAll(localRoot)
+			_ = r.jobs.SetFailed(ctx, j.ID, "failed to prepare local PAR input: "+copyErr.Error())
+			return
+		}
+		workInputPath = copiedPath
+		_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
+	}
+	if cleanupPath != "" {
+		defer os.RemoveAll(cleanupPath)
+	}
+
+	if st, err := os.Stat(workInputPath); err == nil && st.IsDir() {
 		files := make([]string, 0, 64)
-		_ = filepath.WalkDir(p.InputPath, func(fp string, d os.DirEntry, err error) error {
+		_ = filepath.WalkDir(workInputPath, func(fp string, d os.DirEntry, err error) error {
 			if err != nil || d == nil {
 				return nil
 			}
@@ -81,7 +180,7 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 			args = append(args, files...)
 		}
 	} else {
-		args = append(args, "-B/", parBase+".par2", p.InputPath)
+		args = append(args, "-B/", parBase+".par2", workInputPath)
 	}
 
 	tickDone := make(chan struct{})
@@ -116,9 +215,9 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 			_ = r.jobs.AppendLog(ctx, j.ID, clean)
 		}
 	}, "par2", args...)
-	
+
 	close(tickDone)
-	
+
 	if err != nil {
 		_ = r.jobs.SetFailed(ctx, j.ID, "par2create failed: "+err.Error())
 		return
@@ -180,11 +279,11 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	)
 	uArgs = append(uArgs, "-o", stagingNZB, "-O")
 	uArgs = append(uArgs, "-u", ng.User, "-p", ng.Pass)
-	
+
 	// Pass the staging directory directly to nyuu so it uploads all files inside it
 	uArgs = append(uArgs, "-r", "keep")
 	uArgs = append(uArgs, parStagingDir)
-	
+
 	// Let's add extra logging to see EXACTLY what it's running
 	_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("Nyuu args: %v", uArgs))
 
@@ -208,10 +307,10 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 
 	// Phase 3: Move NZB and Cleanup
 	_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: Moviendo NZB de PAR (Move PAR NZB)")
-	
+
 	_ = os.MkdirAll(p.FinalDir, 0o755)
 	finalNZB := filepath.Join(p.FinalDir, p.BaseName+".par.nzb")
-	
+
 	_, err = moveNZBStagingToFinal(stagingNZB, finalNZB)
 	if err != nil {
 		_ = r.jobs.SetFailed(ctx, j.ID, "failed to move par nzb: "+err.Error())
