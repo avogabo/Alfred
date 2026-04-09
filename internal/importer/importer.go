@@ -140,7 +140,15 @@ func seedManualFromNZB(ctx context.Context, tx *sql.Tx, importID, nzbPath string
 		return nil
 	}
 
-	rel := strings.TrimPrefix(filepath.Clean(nzbPath), "/host/inbox/nzb/")
+	cleanPath := filepath.ToSlash(filepath.Clean(nzbPath))
+	prefixes := []string{"/host/inbox/nzb/", "/host/NZB/"}
+	rel := cleanPath
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(cleanPath, prefix) {
+			rel = strings.TrimPrefix(cleanPath, prefix)
+			break
+		}
+	}
 	rel = strings.TrimPrefix(rel, "./")
 	if rel == "" || rel == "." {
 		return nil

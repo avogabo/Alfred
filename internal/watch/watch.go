@@ -81,7 +81,11 @@ func (w *Watcher) scanNZB(ctx context.Context) error {
 			return nil
 		}
 		name := d.Name()
-		if !strings.HasSuffix(strings.ToLower(name), ".nzb") {
+		lowName := strings.ToLower(name)
+		if !strings.HasSuffix(lowName, ".nzb") {
+			return nil
+		}
+		if strings.Contains(strings.ToLower(filepath.ToSlash(path)), "/.par2/") || strings.Contains(lowName, "[par2]") {
 			return nil
 		}
 		info, err := d.Info()
