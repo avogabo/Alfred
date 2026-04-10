@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/avogabo/AlfredEDR/internal/config"
 	"github.com/avogabo/AlfredEDR/internal/importer"
 	"github.com/avogabo/AlfredEDR/internal/jobs"
+	"github.com/avogabo/AlfredEDR/internal/library"
 )
 
 func prepareRelativePathForAltMount(ctx context.Context, cfg config.Config, store *jobs.Store, jobID, nzbPath string) (*string, error) {
@@ -43,7 +45,48 @@ func prepareRelativePathForAltMount(ctx context.Context, cfg config.Config, stor
 	if virtualDir == "" {
 		return nil, nil
 	}
+
+	virtualDir = normalizeAltMountRelativePath(virtualDir)
+	if virtualDir == "" {
+		return nil, nil
+	}
 	return &virtualDir, nil
+}
+
+func normalizeAltMountRelativePath(p string) string {
+	p = strings.TrimSpace(strings.ReplaceAll(p, `\\`, `/`))
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimSuffix(p, "/")
+	if p == "" {
+		return ""
+	}
+
+	parts := strings.Split(p, "/")
+	if len(parts) >= 4 {
+		low0 := strings.ToLower(strings.TrimSpace(parts[0]))
+		low1 := strings.ToLower(strings.TrimSpace(parts[1]))
+		low2 := strings.TrimSpace(parts[2])
+		if strings.HasPrefix(low0, "edr_nzb") && (low1 == "1080p" || low1 == "2160p" || low1 == "4k") {
+			quality := "1080"
+			if low1 == "2160p" || low1 == "4k" {
+				quality = "2160"
+			}
+			category := "PELICULAS"
+			if strings.Contains(low0, "series") {
+				category = "SERIES"
+			}
+			initial := strings.TrimSpace(low2)
+			if initial == "" || initial == "0" || initial == "#" {
+				initial = "#"
+			} else {
+				initial = library.InitialFolder(initial)
+			}
+			rest := parts[3:]
+			return filepath.ToSlash(filepath.Join(append([]string{category, quality, initial}, rest...)...))
+		}
+	}
+
+	return filepath.ToSlash(p)
 }
 
 func cleanupPreparedImport(ctx context.Context, store *jobs.Store, jobID string) error {
