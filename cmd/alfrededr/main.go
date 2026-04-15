@@ -10,7 +10,6 @@ import (
 	"github.com/avogabo/AlfredEDR/internal/api"
 	"github.com/avogabo/AlfredEDR/internal/backup"
 	"github.com/avogabo/AlfredEDR/internal/config"
-	"github.com/avogabo/AlfredEDR/internal/fusefs"
 	"github.com/avogabo/AlfredEDR/internal/health"
 	"github.com/avogabo/AlfredEDR/internal/runner"
 	"github.com/avogabo/AlfredEDR/internal/watch"
