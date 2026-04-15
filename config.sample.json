@@ -32,7 +32,7 @@
     "series_root": "SERIES",
     "emision_folder": "EMISION",
     "finalizadas_folder": "FINALIZADAS",
-    "uppercase_folders": true,
+    "uppercase_folders": false,
     "movie_dir_template": "{movies_root}/{quality}/{initial}/{title} ({year}) tmdb-{tmdb_id}",
     "movie_file_template": "{title} ({year}) tmdb-{tmdb_id}{ext}",
     "series_dir_template": "{series_root}/{series_status}/{initial}/{series} ({year}) tmdb-{tmdb_id}",

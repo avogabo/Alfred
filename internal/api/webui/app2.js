@@ -182,7 +182,7 @@ async function refreshManual() {
       } else if (c === '4') {
         const ok = confirm('¿Borrar global? Desaparece de auto+manual. No borra NZB/PAR2.');
         if (!ok) return;
-        await apiPostJson('/api/v1/catalog/imports/delete', { id: it.import_id });
+        /* removed import api call */
         await refreshManual();
         await refreshList('auto');
       } else if (c === '5') {
@@ -190,7 +190,7 @@ async function refreshManual() {
         if (!ok) return;
         const typed = prompt('Escribe BORRAR para confirmar');
         if ((typed || '').trim().toUpperCase() !== 'BORRAR') return;
-        await apiPostJson('/api/v1/catalog/imports/delete_full', { id: it.import_id });
+        /* removed import api call */
         await refreshManual();
         await refreshList('auto');
       }
@@ -384,7 +384,7 @@ async function refreshList(kind) {
           if (c === '1') {
             const ok = confirm('¿Borrar global?\n\nDesaparece de biblioteca. No borra NZB/PAR2.');
             if (!ok) return;
-            await apiPostJson('/api/v1/catalog/imports/delete', { id: e.import_id });
+            /* removed import api call */
             await refreshList('auto');
             return;
           }
@@ -393,7 +393,7 @@ async function refreshList(kind) {
             if (!ok) return;
             const typed = prompt('Escribe BORRAR para confirmar');
             if ((typed || '').trim().toUpperCase() !== 'BORRAR') return;
-            await apiPostJson('/api/v1/catalog/imports/delete_full', { id: e.import_id });
+            /* removed import api call */
             await refreshList('auto');
             return;
           }
@@ -1003,7 +1003,7 @@ async function refreshImports() {
   const list = document.getElementById('importsList');
   if (!list) return;
   list.innerHTML = '';
-  const items = await apiGet('/api/v1/catalog/imports');
+  const items = []
   if (!items || items.length === 0) {
     list.innerHTML = '<div class="muted" style="padding:10px">No hay imports.</div>';
     return;
@@ -1021,7 +1021,7 @@ async function refreshImports() {
       ev.stopPropagation();
       const ok = confirm('¿Eliminar este import de la biblioteca (global)?\n\n- Desaparece de library\n- NO borra el NZB ni PAR2 del disco\n\n¿Continuar?');
       if (!ok) return;
-      await apiPostJson('/api/v1/catalog/imports/delete', { id: it.id });
+      /* removed import api call */
       await refreshImports();
       await refreshList('auto');
     };
@@ -1033,7 +1033,7 @@ async function refreshImports() {
       if (!ok) return;
       const typed = prompt('Escribe BORRAR para confirmar');
       if ((typed || '').trim().toUpperCase() !== 'BORRAR') return;
-      await apiPostJson('/api/v1/catalog/imports/delete_full', { id: it.id });
+      /* removed import api call */
       await refreshImports();
       await refreshList('auto');
     };

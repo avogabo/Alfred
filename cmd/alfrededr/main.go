@@ -99,13 +99,7 @@ func main() {
 		go hs.Run(ctx)
 
 		if enableFuse {
-			if cfg.Library.Enabled {
-				if _, err := fusefs.MountLibraryAuto(ctx, cfg, srvJobs); err != nil {
-					log.Printf("FUSE library mount failed: %v", err)
-				} else {
-					log.Printf("FUSE library mounted at %s/library", cfg.Paths.MountPoint)
-				}
-			}
+			log.Printf("FUSE library mount disabled: import/library pipeline removed")
 		}
 	}
 

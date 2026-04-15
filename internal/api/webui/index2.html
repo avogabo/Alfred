@@ -183,13 +183,6 @@
             <div class="muted" style="font-size:12px">Usenet upload</div>
           </div>
         </div>
-        <div class="navItem" data-page="import">
-          <div class="icon">📥</div>
-          <div>
-            <div><b>Importar</b></div>
-            <div class="muted" style="font-size:12px">NZB inbox</div>
-          </div>
-        </div>
         <div class="navItem" data-page="settings">
           <div class="icon">⚙</div>
           <div>
@@ -271,44 +264,7 @@
         </section>
 
         <!-- Import page placeholder -->
-        <section id="page_import" class="hide">
-          <div class="split">
-            <div>
-              <h2 class="sectionTitle">Importar (Import)</h2>
-              <div class="muted">Explorador de <b>NZB inbox</b> (host) + importar a biblioteca.</div>
-            </div>
-            <div class="row">
-              <button class="btn" id="btnImpUp">Arriba (Up)</button>
-              <button class="btn" id="btnImpRefresh">Actualizar (Refresh)</button>
-              <button class="btn primary" id="btnImpEnqueue" disabled>Importar seleccionado (Import selected)</button>
-              <input id="impFilter" placeholder="Filtrar nombre..." style="min-width:220px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--text);" />
-              <span class="muted" id="impStatus"></span>
-            </div>
-          </div>
-
-          <div class="row" style="margin-top:10px">
-            <div class="crumbs" id="impCrumbs" style="flex:1"></div>
-          </div>
-
-          <div class="grid">
-            <div class="list">
-              <div class="listHeader">
-                <div>Nombre (Name)</div>
-                <div class="mono">Size</div>
-                <div class="mono">ModTime</div>
-              </div>
-              <div id="impList"></div>
-            </div>
-          </div>
-
-          <div class="row" style="margin-top:12px">
-            <label class="muted">Subir NZB (Upload NZB)
-              <input id="impUpload" type="file" accept=".nzb" style="margin-left:8px" />
-            </label>
-          </div>
-
-          <div class="muted" style="margin-top:10px" id="impSel">(ningún NZB seleccionado)</div>
-        </section>
+        
 
         <!-- Health page -->
 <!-- Settings page placeholder -->

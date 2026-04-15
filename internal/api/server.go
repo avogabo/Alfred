@@ -293,17 +293,9 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 	// Extra routes
 	s.registerJobLogRoutes()
 	s.registerProviderRoutes()
-	s.registerCatalogRoutes()
-	s.registerImportDeleteRoutes()
-	s.registerCatalogFileRoutes()
 	s.registerRawRoutes()
-	s.registerManualLibraryRoutes()
-	s.registerManualImportRoutes()
 	s.registerManualMediaUploadRoutes()
 	s.registerHostFSRoutes()
-	s.registerLibraryReviewRoutes()
-	s.registerLibraryAutoListRoutes()
-	s.registerLibraryTemplatesRoutes()
 	s.registerUploadSummaryRoutes()
 	s.registerFileBotRoutes()
 

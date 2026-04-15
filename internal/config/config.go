@@ -131,7 +131,7 @@ func Default() Config {
 		Download:    DownloadProvider{Enabled: false, Port: 563, SSL: true, Connections: 20, PrefetchSegments: 50},
 		WebDAVMount: WebDAVMount{Enabled: false, URL: "http://127.0.0.1:1516/webdav", MountPath: "/host/mount/library"},
 		AltMount:    AltMount{Enabled: false, BaseURL: "http://altmount:8080", APIKey: "", User: "", Pass: "", NzbRootLocal: "/host/inbox/nzb", NzbRootRemote: ""},
-		Library:     (Library{Enabled: true, UppercaseFolders: true}).withDefaults(),
+		Library:     (Library{Enabled: true, UppercaseFolders: false}).withDefaults(),
 		Metadata:    (Metadata{}).withDefaults(),
 		Plex:        (Plex{}).withDefaults(),
 		Upload:      Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2", MediaPathMode: "local"}},
