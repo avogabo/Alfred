@@ -88,7 +88,13 @@ ARG NYUU_REPO=github:Antidote2151/Nyuu-Obfuscation
 RUN if [ "$INSTALL_NYUU" = "1" ]; then \
     set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
-    apt-get update; \
+    rm -rf /var/lib/apt/lists/*; \
+    for i in 1 2 3; do \
+      echo "apt-get update attempt $i"; \
+      apt-get update && break; \
+      sleep 5; \
+      rm -rf /var/lib/apt/lists/*; \
+    done; \
     apt-get install -y --no-install-recommends nodejs npm ca-certificates git; \
     npm config set fund false; \
     npm config set audit false; \
