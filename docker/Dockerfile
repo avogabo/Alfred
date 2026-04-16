@@ -82,19 +82,19 @@ RUN mkdir -p /opt/filebot \
 # ---- nyuu (Nyuu-Obfuscation fork) ----
 # Source: https://github.com/Antidote2151/Nyuu-Obfuscation
 # Nyuu is node-based and OPTIONAL for local builds/tests.
+# Keep this layer lean, deterministic, and avoid dragging build toolchains unless npm really needs them.
 ARG INSTALL_NYUU=1
 ARG NYUU_REPO=github:Antidote2151/Nyuu-Obfuscation
 RUN if [ "$INSTALL_NYUU" = "1" ]; then \
-    set -e; \
-    for i in 1 2 3; do \
-      echo "apt attempt $i"; \
-      apt-get update && \
-      apt-get install -y --no-install-recommends --fix-missing nodejs npm git python3 make g++ && \
-      break; \
-      sleep 5; \
-    done; \
-    rm -rf /var/lib/apt/lists/*; \
+    set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends nodejs npm ca-certificates git; \
+    npm config set fund false; \
+    npm config set audit false; \
     npm install -g --production --unsafe-perm "$NYUU_REPO"; \
+    apt-get purge -y --auto-remove git || true; \
+    rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*; \
   else \
     echo "Skipping nyuu install (INSTALL_NYUU=0)"; \
   fi
