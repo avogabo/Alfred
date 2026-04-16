@@ -43,12 +43,19 @@ func (s *Server) registerUploadSummaryRoutes() {
 
 		out := make([]uploadSummary, 0)
 		for _, j := range all {
-			if j.Type != jobs.TypeUpload {
+			if j.Type != jobs.TypeUpload && j.Type != jobs.TypeUploadParNZB {
 				continue
 			}
-			// payload contains {"path":"..."}
-			var p struct{ Path string `json:"path"` }
+			// payload contains {"path":"..."} or PAR2 fields
+			var p struct {
+				Path      string `json:"path"`
+				InputPath string `json:"input_path"`
+			}
 			_ = json.Unmarshal(j.Payload, &p)
+			jobPath := p.Path
+			if strings.TrimSpace(jobPath) == "" {
+				jobPath = p.InputPath
+			}
 
 			lines, _ := s.jobs.GetLogs(r.Context(), j.ID, 20)
 			phase := ""
@@ -85,7 +92,7 @@ func (s *Server) registerUploadSummaryRoutes() {
 				ID:        j.ID,
 				State:     j.State,
 				UpdatedAt: j.UpdatedAt.Format(time.RFC3339),
-				Path:      p.Path,
+				Path:      jobPath,
 				Phase:     phase,
 				Progress:  progress,
 				LastLine:  lastLine,

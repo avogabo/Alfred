@@ -183,6 +183,13 @@
             <div class="muted" style="font-size:12px">Usenet upload</div>
           </div>
         </div>
+        <div class="navItem" data-page="par2">
+          <div class="icon">🧩</div>
+          <div>
+            <div><b>PAR2</b></div>
+            <div class="muted" style="font-size:12px">Parity creation</div>
+          </div>
+        </div>
         <div class="navItem" data-page="settings">
           <div class="icon">⚙</div>
           <div>
@@ -217,13 +224,13 @@
           <div class="card" style="margin-top:10px">
             <div class="row" style="justify-content:space-between">
               <div>
-                <h3 style="margin:0">Reencolar media (Media inbox explorer)</h3>
-                <div class="muted">Explora <b>/inbox/media</b> y encola manualmente un archivo o carpeta.</div>
+                <h3 style="margin:0">Explorador de subida</h3>
+                <div class="muted">Explora <b>/inbox/media</b>, selecciona un archivo o carpeta y prepara la subida manual.</div>
               </div>
               <div class="row">
                 <button class="btn" id="btnUpMediaUp">Arriba (Up)</button>
                 <button class="btn" id="btnUpMediaRefresh">Actualizar (Refresh)</button>
-                <button class="btn primary" id="btnUpMediaEnqueue" disabled>Encolar seleccionado</button>
+                <button class="btn primary" id="btnUpMediaEnqueue" disabled>Crear NZB</button>
               </div>
             </div>
 
@@ -249,6 +256,39 @@
 
           <div class="grid2" style="margin-top:10px">
             <div class="card">
+              <h3>Preparación de subida</h3>
+              <div class="row" style="margin-top:8px; gap:12px; flex-wrap:wrap">
+                <label class="muted">Tipo
+                  <select id="upKind" style="margin-left:8px">
+                    <option value="movie">Película</option>
+                    <option value="series">Serie</option>
+                  </select>
+                </label>
+                <label class="muted">Modo serie
+                  <select id="upSeriesMode" style="margin-left:8px">
+                    <option value="episode">Capítulo</option>
+                    <option value="season">Temporada</option>
+                  </select>
+                </label>
+              </div>
+              <div class="muted" style="margin-top:10px">Preview inicial. Aquí mostraremos el nombre propuesto y la salida antes de lanzar el job.</div>
+              <pre id="upPreview" class="mono" style="white-space:pre-wrap; margin-top:10px"></pre>
+            </div>
+
+            <div class="card">
+              <h3>Procesos activos (Active uploads)</h3>
+              <div class="muted">Solo jobs de subida (upload).</div>
+              <div class="muted" id="upActiveStatus"></div>
+              <div id="upActive"></div>
+            </div>
+
+            <div class="card">
+              <h3>Últimas subidas (Recent uploads)</h3>
+              <div class="muted" id="upRecentStatus"></div>
+              <div id="upRecent"></div>
+            </div>
+          </div>
+            <div class="card">
               <h3>Procesos activos (Active uploads)</h3>
               <div class="muted">Solo jobs de subida (upload).</div>
               <div class="muted" id="upActiveStatus"></div>
@@ -263,11 +303,62 @@
           </div>
         </section>
 
-        <!-- Import page placeholder -->
-        
+        <section id="page_par2" class="hide">
+          <div class="split">
+            <div>
+              <h2 class="sectionTitle">PAR2</h2>
+              <div class="muted">Nueva pestaña v2.0 en construcción. Aquí irá el explorador manual, preview y progreso de PAR2.</div>
+            </div>
+          </div>
 
-        <!-- Health page -->
-<!-- Settings page placeholder -->
+          <div class="card" style="margin-top:10px">
+            <div class="row" style="justify-content:space-between">
+              <div>
+                <h3 style="margin:0">Explorador PAR2</h3>
+                <div class="muted">Navega la carpeta de media y selecciona archivo o carpeta para generar PAR2 manualmente.</div>
+              </div>
+              <div class="row">
+                <button class="btn" id="btnParUp">Arriba (Up)</button>
+                <button class="btn" id="btnParRefresh">Actualizar (Refresh)</button>
+                <button class="btn primary" id="btnParCreate" disabled>Crear PAR2</button>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:8px">
+              <div class="crumbs" id="parCrumbs" style="flex:1"></div>
+              <input id="parFilter" placeholder="Filtrar nombre..." style="min-width:220px" />
+            </div>
+
+            <div class="grid" style="margin-top:8px">
+              <div class="list">
+                <div class="listHeader" style="grid-template-columns: 1fr 110px 190px 90px;">
+                  <div>Nombre (Name)</div>
+                  <div class="mono">Size</div>
+                  <div class="mono">ModTime</div>
+                  <div>Acción</div>
+                </div>
+                <div id="parList"></div>
+              </div>
+            </div>
+            <div class="muted" style="margin-top:8px" id="parSel">(nada seleccionado)</div>
+            <div class="muted" id="parStatus"></div>
+          </div>
+
+          <div class="grid2" style="margin-top:10px">
+            <div class="card">
+              <h3>Preview PAR2</h3>
+              <div class="muted">Vista previa inicial. Aquí mostraremos nombre base, ruta origen y salida esperada.</div>
+              <pre id="parPreview" class="mono" style="white-space:pre-wrap; margin-top:10px"></pre>
+            </div>
+            <div class="card">
+              <h3>Progreso PAR2</h3>
+              <div class="muted">Último job manual de paridad.</div>
+              <div id="parJobs"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Settings page placeholder -->
         <section id="page_settings" class="hide">
           <div class="split">
             <div>
@@ -328,6 +419,10 @@
                   <input id="setNntpGroups" style="min-width:340px; margin-left:8px" placeholder="alt.binaries.example" />
                 </label>
               </div>
+              <div class="row" style="margin-top:8px">
+                <label class="muted"><input type="checkbox" id="setNntpObfuscate" /> Ofuscación</label>
+                <div class="muted">Proveedor fijo: <span class="mono">nyuu</span></div>
+              </div>
 
               <div class="muted" style="margin-top:12px">
                 Nota: Guardar aplica cambios en config y reinicia el contenedor (Save writes config + restart).
@@ -335,140 +430,30 @@
             </div>
 
             <div class="list" style="padding:12px">
-              <b>Importación</b>
-              <div class="muted" style="margin-top:6px">Control del watcher NZB y conexión con AltMount para delegar importación/montaje.</div>
+              <b>PAR2</b>
+              <div class="muted" style="margin-top:6px">Ajustes de generación y almacenamiento de paridad.</div>
 
               <div class="row" style="margin-top:12px">
-                <label class="muted"><input type="checkbox" id="setWatchNZBEnabled" /> Vigilancia automática</label>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <label class="muted">Ruta carpeta vigilada
-                  <input id="setWatchNZBDir" style="min-width:340px; margin-left:8px" placeholder="/host/inbox/nzb" />
-                </label>
-                <input type="checkbox" id="setWatchNZBRecursive" checked style="display:none" />
-              </div>
-
-              <div class="row" style="margin-top:14px">
-                <b>Conexión AltMount</b>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <label class="muted"><input type="checkbox" id="setAltMountEnabled" /> Activar integración</label>
-                <label class="muted">Base URL
-                  <input id="setAltMountBaseURL" style="min-width:320px; margin-left:8px" placeholder="http://altmount:8080" />
+                <label class="muted"><input type="checkbox" id="setParEnabled" /> Activar generación de PAR2</label>
+                <label class="muted">Redundancia (%)
+                  <input id="setParRedundancy" type="number" style="width:110px; margin-left:8px" placeholder="20" />
                 </label>
               </div>
               <div class="row" style="margin-top:8px">
-                <label class="muted">API Key
-                  <input id="setAltMountAPIKey" type="password" style="min-width:240px; margin-left:8px" />
-                </label>
-                <label class="muted">Usuario
-                  <input id="setAltMountUser" style="min-width:180px; margin-left:8px" />
-                </label>
-                <label class="muted">Password
-                  <input id="setAltMountPass" type="password" style="min-width:180px; margin-left:8px" />
+                <label class="muted"><input type="checkbox" id="setParKeepFiles" /> Conservar .par2 locales</label>
+                <label class="muted">Ruta PAR2
+                  <input id="setParDir" style="min-width:340px; margin-left:8px" placeholder="/host/inbox/par2" />
                 </label>
               </div>
               <div class="row" style="margin-top:8px">
-                <label class="muted">Raíz NZB en Alfred
-                  <input id="setAltMountNzbRootLocal" style="min-width:280px; margin-left:8px" placeholder="/host/inbox/nzb" />
+                <label class="muted">Modo media_path
+                  <select id="setParMediaPathMode" style="margin-left:8px">
+                    <option value="local">local</option>
+                    <option value="rclone">rclone</option>
+                  </select>
                 </label>
-                <label class="muted">Raíz NZB en AltMount
-                  <input id="setAltMountNzbRootRemote" style="min-width:280px; margin-left:8px" placeholder="/mnt/.../inbox/nzb" />
-                </label>
               </div>
-              <div class="muted" style="margin-top:10px">Alfred mantiene renombrado y estructura; AltMount hará importación, mount y streaming. Las rutas se traducen de forma configurable entre contenedores.</div>
-            </div>
-
-            <div class="list" style="padding:12px">
-              <b>Library auto</b>
-              <div class="muted" style="margin-top:6px">Estructura de rutas virtuales que ve Plex (apunta Plex a <span class="mono">library</span>).</div>
-
-              <div class="row" style="margin-top:12px">
-                <div class="muted"><b>library</b> está siempre activo (no se puede desactivar).</div>
-                <label class="muted" style="margin-left:14px"><input type="checkbox" id="setLibUpper" /> Carpetas en MAYÚSCULAS</label>
-              </div>
-
-              <div class="row" style="margin-top:12px">
-                <div class="muted"><b>Templates actuales</b> (edita aquí y guarda):</div>
-              </div>
-
-              <div class="row" style="margin-top:10px">
-                <div class="muted" style="min-width:120px"><b>Pelis</b></div>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <div class="muted" style="min-width:140px">Carpeta</div>
-                <code id="tplMovieDir" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:740px"></code>
-                <button class="btn" id="btnCopyMovieDir">Copiar</button>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <label class="muted" style="min-width:140px">Editar</label>
-                <input id="setLibMovieDirT" style="min-width:740px" />
-              </div>
-
-              <div class="row" style="margin-top:10px">
-                <div class="muted" style="min-width:140px">Archivo</div>
-                <code id="tplMovieFile" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:740px"></code>
-                <button class="btn" id="btnCopyMovieFile">Copiar</button>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <label class="muted" style="min-width:140px">Editar</label>
-                <input id="setLibMovieFileT" style="min-width:740px" />
-              </div>
-
-              <div class="row" style="margin-top:12px">
-                <div class="muted" style="min-width:120px"><b>Series</b></div>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <div class="muted" style="min-width:140px">Carpeta serie</div>
-                <code id="tplSeriesDir" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:740px"></code>
-                <button class="btn" id="btnCopySeriesDir">Copiar</button>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <label class="muted" style="min-width:140px">Editar</label>
-                <input id="setLibSeriesDirT" style="min-width:740px" />
-              </div>
-
-              <div class="row" style="margin-top:10px">
-                <div class="muted" style="min-width:140px">Carpeta temporada</div>
-                <code id="tplSeasonDir" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:740px"></code>
-                <button class="btn" id="btnCopySeasonDir">Copiar</button>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <label class="muted" style="min-width:140px">Editar</label>
-                <input id="setLibSeasonT" style="min-width:740px" />
-              </div>
-
-              <div class="row" style="margin-top:10px">
-                <div class="muted" style="min-width:140px">Archivo episodio</div>
-                <code id="tplSeriesFile" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:740px"></code>
-                <button class="btn" id="btnCopySeriesFile">Copiar</button>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <label class="muted" style="min-width:140px">Editar</label>
-                <input id="setLibSeriesFileT" style="min-width:740px" />
-              </div>
-
-              <div class="row" style="margin-top:14px">
-                <div class="muted"><b>Ejemplos reales</b> (preview)</div>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <code id="tplPrevMovie" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:980px"></code>
-              </div>
-              <div class="row" style="margin-top:6px">
-                <code id="tplPrevSeries" class="mono" style="white-space:nowrap; overflow:auto; display:inline-block; max-width:980px"></code>
-              </div>
-
-              <div class="row" style="margin-top:14px">
-                <div class="muted"><b>Variables disponibles</b></div>
-              </div>
-              <div class="muted" style="margin-top:6px; line-height:1.5">
-                <span class="mono">{title}</span>, <span class="mono">{year}</span>, <span class="mono">{ext}</span>, <span class="mono">{tmdb_id}</span>,
-                <span class="mono">{quality}</span>, <span class="mono">{initial}</span>,
-                <span class="mono">{series}</span>, <span class="mono">{episode_title}</span>, <span class="mono">{series_status}</span>,
-                <span class="mono">{season:00}</span>, <span class="mono">{episode:00}</span>,
-                <span class="mono">{movies_root}</span>, <span class="mono">{series_root}</span>
-              </div>
-              <div class="muted" style="margin-top:6px">Tip: <span class="mono">:00</span> hace padding (01,02…).</div>
+              <div class="muted" style="margin-top:10px">Binario PAR2 en uso: <span class="mono">par2</span> (implementación: <span class="mono">par2cmdline-turbo</span>).</div>
 
               <div class="row" style="margin-top:14px"><div class="muted"><b>TMDB</b></div></div>
               <div class="row" style="margin-top:8px">
@@ -481,11 +466,10 @@
                 </label>
               </div>
 
-              <div class="row" style="margin-top:14px"><div class="muted"><b>FileBot</b> (auto rename)</div></div>
+              <div class="row" style="margin-top:14px"><div class="muted"><b>FileBot</b> (persistente)</div></div>
               <div class="row" style="margin-top:8px; gap:12px; flex-wrap:wrap">
                 <div class="muted">License path fijo: <span class="mono">/config/filebot/license.psm</span></div>
-                <button class="btn" id="btnFileBotTestLicense">Test licencia</button>
-                <span class="muted" id="filebotTestStatus"></span>
+                <span class="muted">Data persistente: <span class="mono">/config/filebot/data</span></span>
               </div>
               <div class="row" style="margin-top:8px; gap:12px; flex-wrap:wrap">
                 <label class="muted">DB
@@ -494,28 +478,16 @@
                 <label class="muted">Language
                   <input id="setFileBotLanguage" style="min-width:120px; margin-left:8px" placeholder="es" />
                 </label>
-              </div>
-            </div>
-
-            <div class="list" style="padding:12px">
-              <b>Plex</b>
-              <div class="muted" style="margin-top:6px">Refresco selectivo tras importar en library.</div>
-              <div class="row" style="margin-top:12px">
-                <label class="muted"><input type="checkbox" id="setPlexAutoRefresh" /> Refrescar Plex automáticamente al importar</label>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <label class="muted">URL
-                  <input id="setPlexBaseURL" style="min-width:340px; margin-left:8px" placeholder="http://192.168.1.10:32400" />
+                <label class="muted">Movie format
+                  <input id="setFileBotMovieFormat" style="min-width:220px; margin-left:8px" placeholder="{n} ({y})" />
                 </label>
               </div>
-              <div class="row" style="margin-top:8px">
-                <label class="muted">Token
-                  <input id="setPlexToken" type="password" style="min-width:340px; margin-left:8px" placeholder="X-Plex-Token" />
+              <div class="row" style="margin-top:8px; gap:12px; flex-wrap:wrap">
+                <label class="muted">Series format
+                  <input id="setFileBotSeriesFormat" style="min-width:260px; margin-left:8px" placeholder="{n} - {s00e00} - {t}" />
                 </label>
-              </div>
-              <div class="row" style="margin-top:8px">
-                <label class="muted">Plex root
-                  <input id="setPlexRoot" style="min-width:340px; margin-left:8px" placeholder="/mnt/media/library" />
+                <label class="muted">Binario
+                  <input id="setFileBotBinary" style="min-width:260px; margin-left:8px" placeholder="/usr/local/bin/filebot" />
                 </label>
               </div>
             </div>
@@ -612,8 +584,7 @@
   <script src="/webui/app2.js?v=1.6.39"></script>
   <script src="/webui/upload2.js"></script>
 
-  <div id="compatGhost" style="display:none">
-    <input id="setLibEnabled" type="checkbox" />
+    <div id="compatGhost" style="display:none">
     <input id="setHealthEnabled" type="checkbox" />
     <input id="setHealthScanEnabled" type="checkbox" />
     <input id="setHealthAutoRepair" type="checkbox" />
@@ -621,16 +592,9 @@
     <input id="setHealthChunkEveryHours" />
     <input id="setHealthIntervalHours" />
     <input id="setHealthLockTTLHours" />
-    <button id="btnImportsRefresh" type="button"></button>
-    <button id="btnHealthScan" type="button"></button>
-    <button id="btnHealthRefresh" type="button"></button>
-    <button id="btnHealthUp" type="button"></button>
-    <div id="importsList"></div>
-    <div id="healthList"></div>
-    <span id="healthStatus"></span>
-    <span id="healthSummary"></span>
-    <div id="healthCrumbs"></div>
   </div>
+
+
 
 </body>
 </html>

@@ -297,6 +297,7 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 	s.registerManualMediaUploadRoutes()
 	s.registerHostFSRoutes()
 	s.registerUploadSummaryRoutes()
+	s.registerV2ManualRoutes()
 	s.registerFileBotRoutes()
 
 	// Backups
