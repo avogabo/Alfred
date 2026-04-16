@@ -48,6 +48,226 @@ function _num(v) {
   return m ? Number(m[0]) : 0;
 }
 
+function fmtSize(n) {
+  const x = Number(n || 0);
+  if (!Number.isFinite(x) || x <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let v = x;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v >= 10 || i === 0 ? v.toFixed(0) : v.toFixed(1)} ${units[i]}`;
+}
+
+function setStatus(id, text) {
+  const n = document.getElementById(id);
+  if (n) n.textContent = text || '';
+}
+
+function showPage(page) {
+  for (const sec of document.querySelectorAll('section[id^="page_"]')) sec.classList.add('hide');
+  const target = document.getElementById(`page_${page}`);
+  if (target) target.classList.remove('hide');
+  for (const item of document.querySelectorAll('.navItem')) item.classList.toggle('active', item.dataset.page === page);
+}
+
+function renderCrumbs(id, fullPath, rootPath, onPick) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  box.innerHTML = '';
+  const root = String(rootPath || '/');
+  const current = String(fullPath || root);
+  const rel = current.startsWith(root) ? current.slice(root.length) : '';
+  const parts = rel.split('/').filter(Boolean);
+  const chain = [{ label: root, path: root }];
+  let acc = root;
+  for (const p of parts) {
+    acc = `${acc.replace(/\/$/, '')}/${p}`;
+    chain.push({ label: p, path: acc });
+  }
+  chain.forEach((c, idx) => {
+    const btn = el('span', { class: 'crumb', text: c.label });
+    btn.onclick = () => onPick(c.path);
+    box.appendChild(btn);
+    if (idx < chain.length - 1) box.appendChild(el('span', { class: 'crumbSep', text: '›' }));
+  });
+}
+
+async function restartNow() {
+  setStatus('setStatus', 'Reiniciando...');
+  try {
+    await apiPostJson('/api/v1/restart', {});
+    setStatus('setStatus', 'Reinicio solicitado');
+  } catch (e) {
+    setStatus('setStatus', 'Error: ' + String(e));
+  }
+}
+
+async function loadUploadSettings() {
+  const cfg = await apiGet('/api/v1/config');
+  const up = cfg.upload || {};
+  const ng = cfg.ngpost || {};
+  const par = (up.par || {});
+  const tm = ((cfg.metadata || {}).tmdb || {});
+  const fb = (cfg.filebot || {});
+  const backups = cfg.backups || {};
+
+  const setVal = (id, v) => { const n = document.getElementById(id); if (n) n.value = v ?? ''; };
+  const setChk = (id, v) => { const n = document.getElementById(id); if (n) n.checked = !!v; };
+
+  setChk('setWatchMediaEnabled', !!((cfg.watch || {}).media || {}).enabled);
+  setVal('setWatchMediaDir', ((cfg.watch || {}).media || {}).dir || '/host/inbox/media');
+  setChk('setWatchMediaRecursive', !!((cfg.watch || {}).media || {}).recursive);
+
+  setVal('setNntpHost', ng.host || '');
+  setVal('setNntpPort', ng.port || 563);
+  setChk('setNntpSSL', ng.ssl !== false);
+  setVal('setNntpUser', ng.user || '');
+  setVal('setNntpPass', '');
+  setVal('setNntpConnections', ng.connections || 20);
+  setVal('setNntpThreads', ng.threads || 2);
+  setVal('setNntpGroups', ng.groups || '');
+  setChk('setNntpObfuscate', !!ng.obfuscate);
+
+  setChk('setParEnabled', !!par.enabled);
+  setVal('setParRedundancy', par.redundancy || 0);
+  setChk('setParKeepFiles', !!par.keep_files);
+  setVal('setParDir', par.dir || '/host/inbox/par2');
+  setVal('setParMediaPathMode', par.media_path_mode || 'local');
+
+  setChk('setTMDBEnabled', !!tm.enabled);
+  setVal('setTMDBApiKey', '');
+  setVal('setTMDBLanguage', tm.language || 'es-ES');
+
+  setVal('setFileBotDB', fb.db || 'TheMovieDB');
+  setVal('setFileBotLanguage', fb.language || 'es');
+  setVal('setFileBotMovieFormat', fb.movie_format || '');
+  setVal('setFileBotSeriesFormat', fb.series_format || '');
+  setVal('setFileBotBinary', fb.binary || '/usr/local/bin/filebot');
+
+  setChk('setBackupsEnabled', !!backups.enabled);
+  setChk('setBackupsCompress', !!backups.compress);
+  setVal('setBackupsDir', backups.dir || '/backups');
+  setVal('setBackupsEvery', backups.every_minutes || 0);
+  setVal('setBackupsKeep', backups.keep || 30);
+
+  setStatus('setStatus', '');
+  refreshBackupsList().catch(() => {});
+}
+
+async function saveUploadSettings() {
+  const cfg = await apiGet('/api/v1/config');
+  const val = (id) => document.getElementById(id)?.value ?? '';
+  const chk = (id) => !!document.getElementById(id)?.checked;
+
+  cfg.upload = cfg.upload || {};
+  cfg.upload.provider = 'nyuu';
+  cfg.upload.par = cfg.upload.par || {};
+  cfg.watch = cfg.watch || {};
+  cfg.watch.media = cfg.watch.media || {};
+  cfg.ngpost = cfg.ngpost || {};
+  cfg.metadata = cfg.metadata || {};
+  cfg.metadata.tmdb = cfg.metadata.tmdb || {};
+  cfg.filebot = cfg.filebot || {};
+  cfg.backups = cfg.backups || {};
+
+  cfg.watch.media.enabled = chk('setWatchMediaEnabled');
+  cfg.watch.media.dir = val('setWatchMediaDir').trim();
+  cfg.watch.media.recursive = chk('setWatchMediaRecursive');
+
+  cfg.ngpost.host = val('setNntpHost').trim();
+  cfg.ngpost.port = _num(val('setNntpPort')) || 563;
+  cfg.ngpost.ssl = chk('setNntpSSL');
+  cfg.ngpost.user = val('setNntpUser');
+  const pass = val('setNntpPass');
+  if (String(pass).trim()) cfg.ngpost.pass = pass;
+  cfg.ngpost.connections = _num(val('setNntpConnections')) || 20;
+  cfg.ngpost.threads = _num(val('setNntpThreads')) || 2;
+  cfg.ngpost.groups = val('setNntpGroups').trim();
+  cfg.ngpost.obfuscate = chk('setNntpObfuscate');
+
+  cfg.upload.par.enabled = chk('setParEnabled');
+  cfg.upload.par.redundancy = _num(val('setParRedundancy'));
+  cfg.upload.par.keep_files = chk('setParKeepFiles');
+  cfg.upload.par.dir = val('setParDir').trim();
+  cfg.upload.par.media_path_mode = val('setParMediaPathMode') || 'local';
+
+  cfg.metadata.tmdb.enabled = chk('setTMDBEnabled');
+  cfg.metadata.tmdb.language = val('setTMDBLanguage').trim();
+  const tmdbKey = val('setTMDBApiKey').trim();
+  if (tmdbKey) cfg.metadata.tmdb.api_key = tmdbKey;
+
+  cfg.filebot.db = val('setFileBotDB').trim();
+  cfg.filebot.language = val('setFileBotLanguage').trim();
+  cfg.filebot.movie_format = val('setFileBotMovieFormat');
+  cfg.filebot.series_format = val('setFileBotSeriesFormat');
+  cfg.filebot.binary = val('setFileBotBinary').trim();
+
+  cfg.backups.enabled = chk('setBackupsEnabled');
+  cfg.backups.compress = chk('setBackupsCompress');
+  cfg.backups.dir = val('setBackupsDir').trim();
+  cfg.backups.every_minutes = _num(val('setBackupsEvery'));
+  cfg.backups.keep = _num(val('setBackupsKeep')) || 30;
+
+  setStatus('setStatus', 'Guardando...');
+  await apiPutJson('/api/v1/config', cfg);
+  setStatus('setStatus', 'Guardado. Reiniciando...');
+  await apiPostJson('/api/v1/restart', {});
+}
+
+async function refreshLogsJobs() {
+  const state = String(document.getElementById('logsStateFilter')?.value || '').trim();
+  const filter = String(document.getElementById('logsFilter')?.value || '').trim().toLowerCase();
+  const data = await apiGet(`/api/v1/jobs?limit=80${state ? `&state=${encodeURIComponent(state)}` : ''}`);
+  const box = document.getElementById('logsJobs');
+  if (!box) return;
+  box.innerHTML = '';
+
+  for (const j of (data || [])) {
+    const path = (() => {
+      try {
+        const p = JSON.parse(j.payload || '{}');
+        return p.path || p.input_path || '';
+      } catch (_) { return ''; }
+    })();
+    const hay = `${j.id} ${j.type} ${j.state} ${path}`.toLowerCase();
+    if (filter && !hay.includes(filter)) continue;
+
+    const row = el('div', { class: 'listRow' });
+    row.style.gridTemplateColumns = '90px 120px 110px 1fr 110px';
+    row.appendChild(el('div', { class: 'mono', text: String(j.id || '').slice(0, 8) }));
+    row.appendChild(el('div', { class: 'mono muted', text: j.type || '' }));
+    row.appendChild(el('div', { class: 'mono muted', text: j.state || '' }));
+    row.appendChild(el('div', { class: 'mono', text: path || '-' }));
+    const btn = el('button', { class: 'btn', text: 'Ver logs' });
+    btn.onclick = async () => {
+      setStatus('logsStatus', 'Cargando logs...');
+      const limit = _num(document.getElementById('logsLimit')?.value || 400) || 400;
+      const resp = await apiGet(`/api/v1/jobs/${j.id}/logs?limit=${limit}`);
+      const out = document.getElementById('logsOut');
+      const title = document.getElementById('logsTitle');
+      if (title) title.textContent = `${j.type} · ${String(j.id).slice(0,8)} · ${path || '-'}`;
+      if (out) out.textContent = (resp.lines || []).slice().reverse().join('\n');
+      setStatus('logsStatus', '');
+    };
+    const act = el('div'); act.appendChild(btn);
+    row.appendChild(act);
+    box.appendChild(row);
+  }
+
+  setStatus('logsStatus', `Jobs: ${box.children.length}`);
+}
+
+async function resetMediaRequeueMarks() {
+  await apiPostJson('/api/v1/watch/media/requeue', {});
+  setStatus('logsStatus', 'Marcas de requeue reseteadas');
+}
+
+async function refreshHealthScan() {
+  setStatus('healthStatus', 'No usado en v2');
+}
 
 async function refreshBackupsList() {
   const sel = document.getElementById('setBackupsRestoreName');
@@ -308,6 +528,9 @@ window.addEventListener('DOMContentLoaded', () => {
       item.onclick = () => showPage(item.dataset.page);
     }
     showPage('upload');
+    await loadUploadSettings().catch(() => {});
+    await refreshUploadPanels().catch(() => {});
+    await refreshLogsJobs().catch(() => {});
 
   // v2 upload/par2 path
 
