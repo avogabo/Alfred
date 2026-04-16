@@ -95,11 +95,11 @@ RUN if [ "$INSTALL_NYUU" = "1" ]; then \
       sleep 5; \
       rm -rf /var/lib/apt/lists/*; \
     done; \
-    apt-get install -y --no-install-recommends nodejs npm ca-certificates git; \
+    apt-get install -y --no-install-recommends nodejs npm ca-certificates git python3 make g++; \
     npm config set fund false; \
     npm config set audit false; \
     npm install -g --production --unsafe-perm "$NYUU_REPO"; \
-    apt-get purge -y --auto-remove git || true; \
+    apt-get purge -y --auto-remove git make g++ || true; \
     rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*; \
   else \
     echo "Skipping nyuu install (INSTALL_NYUU=0)"; \
