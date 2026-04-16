@@ -42,8 +42,12 @@ func (s *Server) registerUploadSummaryRoutes() {
 		}
 
 		out := make([]uploadSummary, 0)
+		cutoff := time.Now().Add(-24 * time.Hour)
 		for _, j := range all {
 			if j.Type != jobs.TypeUpload && j.Type != jobs.TypeUploadParNZB {
+				continue
+			}
+			if j.UpdatedAt.Before(cutoff) {
 				continue
 			}
 			// payload contains {"path":"..."} or PAR2 fields

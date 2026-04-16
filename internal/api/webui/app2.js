@@ -309,9 +309,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     showPage('upload');
 
-  // Upload/Par2 v2 path only
-  return;
-
   // v2 upload/par2 path
 
   // Import page
