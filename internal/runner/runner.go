@@ -22,6 +22,8 @@ import (
 )
 
 var rePercent = regexp.MustCompile(`\b(\d{1,3})%\b`)
+var reArticlesProgress = regexp.MustCompile(`(?i)posted\s+(\d+)\s*/\s*(\d+)\s+articles?`)
+var reFilesProgress = regexp.MustCompile(`(?i)(\d+)\s*/\s*(\d+)\s+files?`)
 var reSeasonNum = regexp.MustCompile(`(?i)(?:season|temporada|s)\s*0*(\d{1,2})`)
 var reEpisodeNum = regexp.MustCompile(`(?i)\b(?:s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2})\b`)
 
@@ -344,6 +346,8 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				)
 				// NZB output (staging)
 				args = append(args, "-o", stagingNZB, "-O")
+				// Ask nyuu to emit periodic progress lines we can capture in job logs.
+				args = append(args, "--progress", "log:15s")
 				// Auth
 				args = append(args, "-u", ng.User, "-p", ng.Pass)
 				// Input file/dir (nyuu supports directories; keep subdirs)
@@ -360,6 +364,23 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 						if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
 							emitProgress(n)
+						}
+					}
+					if m := reArticlesProgress.FindStringSubmatch(clean); len(m) == 3 {
+						if done, e1 := strconv.Atoi(m[1]); e1 == nil {
+							if total, e2 := strconv.Atoi(m[2]); e2 == nil && total > 0 {
+								emitProgress((done * 100) / total)
+							}
+						}
+					}
+					if m := reFilesProgress.FindStringSubmatch(clean); len(m) == 3 {
+						if done, e1 := strconv.Atoi(m[1]); e1 == nil {
+							if total, e2 := strconv.Atoi(m[2]); e2 == nil && total > 0 {
+								p := (done * 100) / total
+								if p > 0 {
+									emitProgress(p)
+								}
+							}
 						}
 					}
 				}, r.NyuuPath, args...)
