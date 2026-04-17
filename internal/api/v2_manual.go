@@ -130,7 +130,26 @@ func (s *Server) registerV2ManualRoutes() {
 		if strings.TrimSpace(nzbOutDir) == "" {
 			nzbOutDir = "/host/inbox/nzb"
 		}
-		nzbOut := filepath.Join(nzbOutDir, namePreview+".nzb")
+		nzbFile := namePreview + ".nzb"
+		nzbOut := filepath.Join(nzbOutDir, nzbFile)
+		if kind == "series" {
+			initial := library.InitialFolder(resolvedTitle)
+			if strings.TrimSpace(initial) == "" {
+				initial = "#"
+			}
+			seriesFolder := cleanTitle
+			nzbOut = filepath.Join(nzbOutDir, "SERIES", initial, seriesFolder, nzbFile)
+		} else {
+			quality := g.Quality
+			if strings.TrimSpace(quality) == "" {
+				quality = "1080"
+			}
+			initial := library.InitialFolder(resolvedTitle)
+			if strings.TrimSpace(initial) == "" {
+				initial = "#"
+			}
+			nzbOut = filepath.Join(nzbOutDir, "Peliculas", quality, initial, nzbFile)
+		}
 		parDir := cfg.Upload.Par.Dir
 		if strings.TrimSpace(parDir) == "" {
 			parDir = "/host/inbox/par2"
