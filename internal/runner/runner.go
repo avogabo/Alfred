@@ -23,6 +23,7 @@ import (
 
 var rePercent = regexp.MustCompile(`\b(\d{1,3})%\b`)
 var reArticlesProgress = regexp.MustCompile(`(?i)posted\s+(\d+)\s*/\s*(\d+)\s+articles?`)
+var reArticlePostingProgress = regexp.MustCompile(`(?i)article posting progress:\s*(\d+)\s+read,\s*(\d+)\s+posted`)
 var reFilesProgress = regexp.MustCompile(`(?i)(\d+)\s*/\s*(\d+)\s+files?`)
 var reSeasonNum = regexp.MustCompile(`(?i)(?:season|temporada|s)\s*0*(\d{1,2})`)
 var reEpisodeNum = regexp.MustCompile(`(?i)\b(?:s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2})\b`)
@@ -370,6 +371,22 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						if done, e1 := strconv.Atoi(m[1]); e1 == nil {
 							if total, e2 := strconv.Atoi(m[2]); e2 == nil && total > 0 {
 								emitProgress((done * 100) / total)
+							}
+						}
+					}
+					if m := reArticlePostingProgress.FindStringSubmatch(clean); len(m) == 3 {
+						if readN, e1 := strconv.Atoi(m[1]); e1 == nil {
+							if postedN, e2 := strconv.Atoi(m[2]); e2 == nil {
+								den := readN
+								if den < postedN {
+									den = postedN
+								}
+								if den > 0 {
+									p := (postedN * 100) / den
+									if p >= 0 && p <= 100 {
+										emitProgress(p)
+									}
+								}
 							}
 						}
 					}
