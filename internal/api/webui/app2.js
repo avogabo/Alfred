@@ -490,9 +490,20 @@ async function refreshUploadPanels() {
   const renderItem = (box, it) => {
     if (!box) return;
     const row = el('div', { class: 'listRow' });
+    row.style.gridTemplateColumns = '1fr';
+    const pct = Math.max(0, Math.min(100, Number(it.progress || 0)));
     row.appendChild(el('div', { class: 'name' }, [el('div', { class: 'icon', text: 'UP' }), el('div', { class: 'mono', text: it.path || it.id })]));
-    row.appendChild(el('div', { class: 'mono muted', text: String(it.progress || 0) + '%' }));
-    row.appendChild(el('div', { class: 'mono muted', text: `${it.state}${it.phase ? ' · ' + it.phase : ''}` }));
+    const progressWrap = el('div', { class: 'progressWrap' });
+    const progressBar = el('div', { class: 'progressBar' });
+    const progressFill = el('div', { class: 'progressFill' });
+    progressFill.style.width = `${pct}%`;
+    progressBar.appendChild(progressFill);
+    progressWrap.appendChild(progressBar);
+    progressWrap.appendChild(el('div', { class: 'progressMeta' }, [
+      el('div', { class: 'mono muted', text: `${pct}%` }),
+      el('div', { class: 'mono muted', text: `${it.state}${it.phase ? ' · ' + it.phase : ''}` })
+    ]));
+    row.appendChild(progressWrap);
     box.appendChild(row);
   };
 
