@@ -50,7 +50,8 @@ func (s *Server) registerV2ManualRoutes() {
 			return
 		}
 
-		g := library.GuessFromFilename(filepath.Base(p))
+		baseNameOnly := filepath.Base(p)
+		g := library.GuessFromFilename(baseNameOnly)
 		kind := strings.ToLower(strings.TrimSpace(req.Kind))
 		seriesMode := strings.ToLower(strings.TrimSpace(req.SeriesMode))
 		if kind == "" {
@@ -72,9 +73,25 @@ func (s *Server) registerV2ManualRoutes() {
 		if st.IsDir() {
 			mode = "folder"
 		}
-		baseName := strings.TrimSuffix(filepath.Base(p), filepath.Ext(filepath.Base(p)))
+		baseName := strings.TrimSuffix(baseNameOnly, filepath.Ext(baseNameOnly))
 		resolvedTitle := strings.TrimSpace(g.Title)
 		resolvedYear := g.Year
+		if st.IsDir() && kind == "series" && seriesMode == "season" {
+			parentName := filepath.Base(filepath.Dir(p))
+			parentGuess := library.GuessFromFilename(parentName)
+			if strings.TrimSpace(parentGuess.Title) != "" {
+				resolvedTitle = strings.TrimSpace(parentGuess.Title)
+			}
+			if parentGuess.Year > 0 {
+				resolvedYear = parentGuess.Year
+			}
+			if g.Season <= 0 {
+				seasonGuess := library.GuessFromFilename(baseNameOnly)
+				if seasonGuess.Season > 0 {
+					g.Season = seasonGuess.Season
+				}
+			}
+		}
 		if !st.IsDir() {
 			ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 			defer cancel()
@@ -98,7 +115,11 @@ func (s *Server) registerV2ManualRoutes() {
 		namePreview := cleanTitle
 		if kind == "series" {
 			if seriesMode == "season" {
-				namePreview = fmt.Sprintf("%s Temporada", cleanTitle)
+				if g.Season > 0 {
+					namePreview = fmt.Sprintf("%s Temporada %02d", cleanTitle, g.Season)
+				} else {
+					namePreview = fmt.Sprintf("%s Temporada", cleanTitle)
+				}
 			} else if g.Season > 0 && g.Episode > 0 {
 				namePreview = fmt.Sprintf("%s %02dx%02d", cleanTitle, g.Season, g.Episode)
 			} else {
