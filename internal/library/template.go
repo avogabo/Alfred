@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	reYear   = regexp.MustCompile(`\b(19\d{2}|20\d{2})\b`)
-	reSxxExx = regexp.MustCompile(`(?i)\bS(\d{1,2})E(\d{1,2})\b`)
-	reNxxXxx = regexp.MustCompile(`\b(\d{1,2})x(\d{1,2})\b`)
+	reYear      = regexp.MustCompile(`\b(19\d{2}|20\d{2})\b`)
+	reSxxExx    = regexp.MustCompile(`(?i)\bS(\d{1,2})E(\d{1,2})\b`)
+	reNxxXxx    = regexp.MustCompile(`\b(\d{1,2})x(\d{1,2})\b`)
+	reSeasonDir = regexp.MustCompile(`(?i)\btemporada\s*(\d{1,2})\b|\bseason\s*(\d{1,2})\b`)
 )
 
 type Guess struct {
@@ -50,6 +51,19 @@ func GuessFromFilename(name string) Guess {
 			g.Season, _ = strconv.Atoi(stem[loc[2]:loc[3]])
 			g.Episode, _ = strconv.Atoi(stem[loc[4]:loc[5]])
 			stem = strings.TrimSpace(stem[:loc[0]])
+		}
+	}
+	if !g.IsSeries {
+		if m := reSeasonDir.FindStringSubmatch(stem); len(m) >= 3 {
+			seasonText := m[1]
+			if seasonText == "" {
+				seasonText = m[2]
+			}
+			if seasonText != "" {
+				g.IsSeries = true
+				g.Season, _ = strconv.Atoi(seasonText)
+				stem = strings.TrimSpace(reSeasonDir.ReplaceAllString(stem, ""))
+			}
 		}
 	}
 
