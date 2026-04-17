@@ -296,13 +296,10 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: "+p)
 		}
 
-		// Optional PAR2 generation is enqueued only AFTER a successful upload.
+		// Optional PAR2 generation (staged in /cache, then optionally persisted under /host/inbox/par2)
 		parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
 		parKeep := cfg.Upload.Par.KeepParityFiles && strings.TrimSpace(cfg.Upload.Par.Dir) != ""
-		enqueueParAfterSuccess := func() {
-			if !(parEnabled && parKeep) {
-				return
-			}
+		if parEnabled && parKeep {
 			relDir, err := filepath.Rel(outDir, filepath.Dir(finalNZB))
 			if err != nil {
 				relDir = ""
@@ -364,15 +361,10 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					}
 				}, r.NyuuPath, args...)
 				if err != nil {
-					if strings.Contains(strings.ToLower(err.Error()), "illegal instruction") {
-						_ = r.jobs.AppendLog(ctx, j.ID, "nyuu illegal instruction; fallback to ngpost")
-						provider = "ngpost"
-					} else {
-						msg := err.Error()
-						_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
-						_ = r.jobs.SetFailed(ctx, j.ID, msg)
-						return
-					}
+					msg := err.Error()
+					_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
+					_ = r.jobs.SetFailed(ctx, j.ID, msg)
+					return
 				}
 				if provider == "nyuu" {
 					// Move staging NZB into the watched NZB inbox only after the uploader has finished.
@@ -386,7 +378,6 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						return
 					}
 					emitProgress(100)
-					enqueueParAfterSuccess()
 
 					_ = r.jobs.SetDone(ctx, j.ID)
 					// Import is handled by the NZB watcher (watch.nzb). We just drop the NZB into the inbox.
@@ -470,7 +461,6 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					return
 				}
 				emitProgress(100)
-				enqueueParAfterSuccess()
 				_ = r.jobs.SetDone(ctx, j.ID)
 				// Import is handled by the NZB watcher (watch.nzb). We just drop the NZB into the inbox.
 				return
