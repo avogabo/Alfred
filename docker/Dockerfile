@@ -98,7 +98,20 @@ RUN if [ "$INSTALL_NYUU" = "1" ]; then \
     apt-get install -y --no-install-recommends nodejs npm ca-certificates git python3 make g++; \
     npm config set fund false; \
     npm config set audit false; \
-    npm install -g --production --unsafe-perm "$NYUU_REPO"; \
+    npm install -g --production --unsafe-perm --ignore-scripts "$NYUU_REPO"; \
+    YENC_DIR="$(npm root -g)/nyuu/node_modules/yencode"; \
+    python3 - <<'PY' "$YENC_DIR/binding.gyp"; \
+import sys
+p = sys.argv[1]
+with open(p, 'r', encoding='utf-8') as f:
+    s = f.read()
+s = s.replace('"enable_native_tuning%": 1,', '"enable_native_tuning%": 0,')
+with open(p, 'w', encoding='utf-8') as f:
+    f.write(s)
+PY
+    cd "$YENC_DIR"; \
+    node-gyp rebuild; \
+    cd /; \
     apt-get purge -y --auto-remove git make g++ || true; \
     rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*; \
   else \
