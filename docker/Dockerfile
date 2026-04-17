@@ -100,15 +100,7 @@ RUN if [ "$INSTALL_NYUU" = "1" ]; then \
     npm config set audit false; \
     npm install -g --production --unsafe-perm --ignore-scripts "$NYUU_REPO"; \
     YENC_DIR="$(npm root -g)/nyuu/node_modules/yencode"; \
-    python3 - <<'PY' "$YENC_DIR/binding.gyp"; \
-import sys
-p = sys.argv[1]
-with open(p, 'r', encoding='utf-8') as f:
-    s = f.read()
-s = s.replace('"enable_native_tuning%": 1,', '"enable_native_tuning%": 0,')
-with open(p, 'w', encoding='utf-8') as f:
-    f.write(s)
-PY
+    python3 -c "from pathlib import Path; p=Path('$YENC_DIR/binding.gyp'); s=p.read_text(encoding='utf-8'); p.write_text(s.replace('\"enable_native_tuning%\": 1,', '\"enable_native_tuning%\": 0,'), encoding='utf-8')"; \
     cd "$YENC_DIR"; \
     node-gyp rebuild; \
     cd /; \
