@@ -492,18 +492,33 @@ async function refreshUploadPanels() {
   const renderItem = (box, it) => {
     if (!box) return;
     const row = el('div', { class: 'listRow' });
-    row.style.gridTemplateColumns = '1fr';
+    row.style.display = 'block';
     const pct = Math.max(0, Math.min(100, Number(it.progress || 0)));
-    row.appendChild(el('div', { class: 'name' }, [el('div', { class: 'icon', text: 'UP' }), el('div', { class: 'mono', text: it.path || it.id })]));
+
+    const top = el('div');
+    top.style.display = 'flex';
+    top.style.alignItems = 'center';
+    top.style.justifyContent = 'space-between';
+    top.style.gap = '12px';
+    top.style.marginBottom = '8px';
+    top.appendChild(el('div', { class: 'name' }, [el('div', { class: 'icon', text: 'UP' }), el('div', { class: 'mono', text: it.path || it.id })]));
+    top.appendChild(el('div', { class: 'mono muted', text: `${pct}%` }));
+    row.appendChild(top);
+
     const progressWrap = el('div', { class: 'progressWrap' });
     const progressBar = el('div', { class: 'progressBar' });
+    progressBar.style.display = 'block';
+    progressBar.style.width = '100%';
+    progressBar.style.minHeight = '10px';
     const progressFill = el('div', { class: 'progressFill' });
+    progressFill.style.display = 'block';
     progressFill.style.width = `${pct}%`;
+    progressFill.style.minHeight = '10px';
     progressBar.appendChild(progressFill);
     progressWrap.appendChild(progressBar);
     progressWrap.appendChild(el('div', { class: 'progressMeta' }, [
-      el('div', { class: 'mono muted', text: `${pct}%` }),
-      el('div', { class: 'mono muted', text: `${it.state}${it.phase ? ' · ' + it.phase : ''}` })
+      el('div', { class: 'mono muted', text: it.phase || it.state || '' }),
+      el('div', { class: 'mono muted', text: it.updated_at || '' })
     ]));
     row.appendChild(progressWrap);
     box.appendChild(row);
