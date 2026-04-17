@@ -296,10 +296,13 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: "+p)
 		}
 
-		// Optional PAR2 generation (staged in /cache, then optionally persisted under /host/inbox/par2)
+		// Optional PAR2 generation must only be enqueued AFTER a successful upload.
 		parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
 		parKeep := cfg.Upload.Par.KeepParityFiles && strings.TrimSpace(cfg.Upload.Par.Dir) != ""
-		if parEnabled && parKeep {
+		enqueueParAfterSuccess := func() {
+			if !(parEnabled && parKeep) {
+				return
+			}
 			relDir, err := filepath.Rel(outDir, filepath.Dir(finalNZB))
 			if err != nil {
 				relDir = ""
@@ -378,6 +381,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						return
 					}
 					emitProgress(100)
+					enqueueParAfterSuccess()
 
 					_ = r.jobs.SetDone(ctx, j.ID)
 					// Import is handled by the NZB watcher (watch.nzb). We just drop the NZB into the inbox.
@@ -461,6 +465,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					return
 				}
 				emitProgress(100)
+				enqueueParAfterSuccess()
 				_ = r.jobs.SetDone(ctx, j.ID)
 				// Import is handled by the NZB watcher (watch.nzb). We just drop the NZB into the inbox.
 				return
