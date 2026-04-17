@@ -125,7 +125,7 @@ async function loadUploadSettings() {
   setVal('setNntpPort', ng.port || 563);
   setChk('setNntpSSL', ng.ssl !== false);
   setVal('setNntpUser', ng.user || '');
-  setVal('setNntpPass', '');
+  setVal('setNntpPass', ng.pass ? '********' : '');
   setVal('setNntpConnections', ng.connections || 20);
   setVal('setNntpThreads', ng.threads || 2);
   setVal('setNntpGroups', ng.groups || '');
@@ -182,7 +182,7 @@ async function saveUploadSettings() {
   cfg.ngpost.ssl = chk('setNntpSSL');
   cfg.ngpost.user = val('setNntpUser');
   const pass = val('setNntpPass');
-  if (String(pass).trim()) cfg.ngpost.pass = pass;
+  if (String(pass).trim() && pass !== '********') cfg.ngpost.pass = pass;
   cfg.ngpost.connections = _num(val('setNntpConnections')) || 20;
   cfg.ngpost.threads = _num(val('setNntpThreads')) || 2;
   cfg.ngpost.groups = val('setNntpGroups').trim();
