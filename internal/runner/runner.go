@@ -302,7 +302,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
 		parKeep := cfg.Upload.Par.KeepParityFiles && strings.TrimSpace(cfg.Upload.Par.Dir) != ""
 		enqueueParAfterSuccess := func() {
-			if !(parEnabled && parKeep) {
+			if !(parEnabled && parKeep && cfg.Upload.Par.ChainAfterUploadOK) {
 				return
 			}
 			relDir, err := filepath.Rel(outDir, filepath.Dir(finalNZB))

@@ -28,11 +28,12 @@ type Runner struct {
 }
 
 type UploadPar struct {
-	Enabled           bool   `json:"enabled"`
-	RedundancyPercent int    `json:"redundancy_percent"` // e.g. 20
-	KeepParityFiles   bool   `json:"keep_parity_files"`
-	Dir               string `json:"dir"`             // where to store parity files if KeepParityFiles=true (e.g. /host/inbox/par2)
-	MediaPathMode     string `json:"media_path_mode"` // local | rclone
+	Enabled             bool   `json:"enabled"`
+	RedundancyPercent   int    `json:"redundancy_percent"` // e.g. 20
+	KeepParityFiles     bool   `json:"keep_parity_files"`
+	Dir                 string `json:"dir"`                   // where to store parity files if KeepParityFiles=true (e.g. /host/inbox/par2)
+	MediaPathMode       string `json:"media_path_mode"`       // local | rclone
+	ChainAfterUploadOK  bool   `json:"chain_after_upload_ok"` // enqueue PAR automatically after successful media upload
 }
 
 type Upload struct {
@@ -134,7 +135,7 @@ func Default() Config {
 		Library:     (Library{Enabled: true, UppercaseFolders: false}).withDefaults(),
 		Metadata:    (Metadata{}).withDefaults(),
 		Plex:        (Plex{}).withDefaults(),
-		Upload:      Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2", MediaPathMode: "local"}},
+		Upload:      Upload{Provider: "nyuu", Par: UploadPar{Enabled: true, RedundancyPercent: 20, KeepParityFiles: true, Dir: "/host/inbox/par2", MediaPathMode: "local", ChainAfterUploadOK: true}},
 		Rename: Rename{Provider: "filebot", FileBot: FileBot{
 			Enabled:      true,
 			Binary:       "/usr/local/bin/filebot",
@@ -235,6 +236,12 @@ func Load(path string) (Config, error) {
 	cfg.Upload.Par.MediaPathMode = strings.ToLower(strings.TrimSpace(cfg.Upload.Par.MediaPathMode))
 	if cfg.Upload.Par.MediaPathMode == "" {
 		cfg.Upload.Par.MediaPathMode = "local"
+	}
+	// Default: auto-chain PAR after successful uploads unless explicitly disabled.
+	if !cfg.Upload.Par.ChainAfterUploadOK {
+		// leave as-is if disabled by user
+	} else {
+		cfg.Upload.Par.ChainAfterUploadOK = true
 	}
 	// Health defaults
 	if strings.TrimSpace(cfg.Health.BackupDir) == "" {

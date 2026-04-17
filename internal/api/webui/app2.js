@@ -134,6 +134,7 @@ async function loadUploadSettings() {
   setChk('setParEnabled', !!par.enabled);
   setVal('setParRedundancy', par.redundancy || 0);
   setChk('setParKeepFiles', !!par.keep_files);
+  setChk('setParChainAfterUploadOK', par.chain_after_upload_ok !== false);
   setVal('setParDir', par.dir || '/host/inbox/par2');
   setVal('setParMediaPathMode', par.media_path_mode || 'local');
 
@@ -191,6 +192,7 @@ async function saveUploadSettings() {
   cfg.upload.par.enabled = chk('setParEnabled');
   cfg.upload.par.redundancy = _num(val('setParRedundancy'));
   cfg.upload.par.keep_files = chk('setParKeepFiles');
+  cfg.upload.par.chain_after_upload_ok = chk('setParChainAfterUploadOK');
   cfg.upload.par.dir = val('setParDir').trim();
   cfg.upload.par.media_path_mode = val('setParMediaPathMode') || 'local';
 
