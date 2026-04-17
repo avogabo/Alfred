@@ -476,6 +476,8 @@ function goUpPar() {
   refreshParList().catch(err => setStatus('parStatus', String(err)));
 }
 
+let uploadPanelsTimer = null;
+
 async function refreshUploadPanels() {
   const data = await apiGet('/api/v1/uploads/summary');
   const items = (data && data.items) ? data.items : [];
@@ -544,6 +546,10 @@ window.addEventListener('DOMContentLoaded', () => {
     await loadUploadSettings().catch(() => {});
     await refreshUploadPanels().catch(() => {});
     await refreshLogsJobs().catch(() => {});
+    if (uploadPanelsTimer) clearInterval(uploadPanelsTimer);
+    uploadPanelsTimer = setInterval(() => {
+      refreshUploadPanels().catch(() => {});
+    }, 5000);
 
   // v2 upload/par2 path
 

@@ -60,6 +60,16 @@ func (s *Server) registerUploadSummaryRoutes() {
 			if strings.TrimSpace(jobPath) == "" {
 				jobPath = p.InputPath
 			}
+			jobPath = strings.TrimSpace(jobPath)
+			if strings.HasPrefix(jobPath, "/host/inbox/media/") {
+				rel := strings.TrimPrefix(jobPath, "/host/inbox/media/")
+				parts := strings.Split(rel, "/")
+				if len(parts) >= 2 {
+					jobPath = parts[0] + " / " + parts[1]
+				} else if len(parts) == 1 {
+					jobPath = parts[0]
+				}
+			}
 
 			lines, _ := s.jobs.GetLogs(r.Context(), j.ID, 20)
 			phase := ""
