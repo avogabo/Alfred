@@ -500,7 +500,7 @@ async function refreshUploadPanels() {
   const parBox = document.getElementById('parJobs');
   if (parBox) {
     parBox.innerHTML = '';
-    const parItems = items.filter(x => String((x.phase || '')).toLowerCase().includes('par') || String((x.path || '')).trim() !== '').filter(x => x.state === 'running' || x.state === 'queued' || x.state === 'done').slice(0, 10);
+    const parItems = items.filter(x => String((x.phase || '')).toLowerCase().includes('par2') || String((x.phase || '')).toLowerCase().includes('par') || String((x.last_line || '')).toLowerCase().includes('par2') || String((x.last_line || '')).toLowerCase().includes('par ')).filter(x => x.state === 'running' || x.state === 'queued' || x.state === 'done').slice(0, 10);
     if (parItems.length === 0) {
       parBox.textContent = 'Sin jobs PAR2 recientes';
     } else {

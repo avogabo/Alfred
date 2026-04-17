@@ -92,6 +92,14 @@ func (s *Server) registerUploadSummaryRoutes() {
 				}
 			}
 
+			if strings.TrimSpace(phase) == "" {
+				if j.Type == jobs.TypeUploadParNZB {
+					phase = "PAR2"
+				} else if j.Type == jobs.TypeUpload {
+					phase = "UPLOAD"
+				}
+			}
+
 			out = append(out, uploadSummary{
 				ID:        j.ID,
 				State:     j.State,
