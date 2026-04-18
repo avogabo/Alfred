@@ -171,21 +171,22 @@ func (s *Server) registerV2ManualRoutes() {
 		}
 
 		resp := map[string]any{
-			"path":            p,
-			"exists":          true,
-			"mode":            mode,
-			"kind":            kind,
-			"series_mode":     seriesMode,
-			"name_preview":    namePreview,
-			"resolved_title":  resolvedTitle,
-			"resolved_year":   resolvedYear,
-			"season":          g.Season,
-			"episode":         g.Episode,
-			"nzb_output":      nzbOut,
-			"par_output_dir":  parDir,
-			"is_dir":          st.IsDir(),
-			"size":            st.Size(),
-			"file_count":      fileCount,
+			"path":                p,
+			"exists":              true,
+			"mode":                mode,
+			"kind":                kind,
+			"series_mode":         seriesMode,
+			"name_preview":        namePreview,
+			"resolved_title":      resolvedTitle,
+			"resolved_year":       resolvedYear,
+			"season":              g.Season,
+			"episode":             g.Episode,
+			"nzb_output":          nzbOut,
+			"combined_nzb_output": nzbOut,
+			"par_output_dir":      parDir,
+			"is_dir":              st.IsDir(),
+			"size":                st.Size(),
+			"file_count":          fileCount,
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
@@ -226,48 +227,4 @@ func (s *Server) registerV2ManualRoutes() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "job": job})
 	})
 
-	s.mux.HandleFunc("/api/v2/manual/par2", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if s.jobs == nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "jobs db not configured"})
-			return
-		}
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		var req manualPreviewRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-			return
-		}
-		cfg := s.Config()
-		p := strings.TrimSpace(req.Path)
-		if p == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "path required"})
-			return
-		}
-		if !strings.HasPrefix(p, "/host/") {
-			p = filepath.Clean(filepath.Join(cfg.Paths.HostRoot, strings.TrimPrefix(p, "/")))
-		}
-		base := strings.TrimSuffix(filepath.Base(p), filepath.Ext(filepath.Base(p)))
-		finalDir := cfg.Upload.Par.Dir
-		if strings.TrimSpace(finalDir) == "" {
-			finalDir = "/host/inbox/par2"
-		}
-		job, err := s.jobs.Enqueue(r.Context(), jobs.TypeUploadParNZB, map[string]string{
-			"input_path": p,
-			"base_name":  base,
-			"final_dir":  finalDir,
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "job": job})
-	})
 }
