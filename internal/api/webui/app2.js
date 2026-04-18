@@ -297,9 +297,6 @@ const UP_MEDIA_ROOT = '/inbox/media';
 let upMediaPath = UP_MEDIA_ROOT;
 let upMediaSelected = '';
 
-// PAR2 explorer (/inbox/media)
-let parPath = UP_MEDIA_ROOT;
-let parSelected = '';
 
 async function refreshUpMedia() {
   setStatus('upMediaStatus', 'Cargando...');
@@ -398,82 +395,13 @@ async function refreshUploadPreview() {
       `año: ${prev.resolved_year || '-'}`,
       `season/episode: ${prev.season || 0}/${prev.episode || 0}`,
       `preview_nombre: ${prev.name_preview}`,
-      `salida_nzb: ${prev.nzb_output}`,
+      `salida_nzb_unico: ${prev.nzb_output}`,
+      `par_previo: sí, antes de subir`,
       `elementos: ${prev.file_count || 1}`
     ].join('\n');
   } catch (e) {
     out.textContent = 'Error preview: ' + String(e);
   }
-}
-
-async function refreshParList() {
-  setStatus('parStatus', 'Cargando...');
-  renderCrumbs('parCrumbs', parPath, UP_MEDIA_ROOT, (picked) => {
-    if (!picked || !String(picked).startsWith(UP_MEDIA_ROOT)) picked = UP_MEDIA_ROOT;
-    parPath = picked;
-    refreshParList().catch(err => setStatus('parStatus', String(err)));
-  });
-
-  const data = await apiGet(`/api/v1/hostfs/list?path=${encodeURIComponent(parPath)}`);
-  const list = document.getElementById('parList');
-  if (!list) return;
-  list.innerHTML = '';
-  const filterText = (document.getElementById('parFilter')?.value || '').trim().toLowerCase();
-
-  for (const e of (data.entries || [])) {
-    if (filterText && !String(e.name || '').toLowerCase().includes(filterText)) continue;
-    const row = el('div', { class: 'listRow' });
-    row.style.gridTemplateColumns = '1fr 110px 190px 90px';
-    const icon = e.is_dir ? 'DIR' : 'VID';
-    row.appendChild(el('div', { class: 'name' }, [
-      el('div', { class: 'icon', text: icon }),
-      el('div', { class: e.is_dir ? '' : 'mono', text: e.name })
-    ]));
-    row.appendChild(el('div', { class: 'mono muted', text: e.is_dir ? '' : fmtSize(e.size) }));
-    row.appendChild(el('div', { class: 'mono muted', text: fmtTime(e.mod_time) }));
-
-    const actionCell = el('div');
-    if (e.is_dir) {
-      const enterBtn = el('button', { class: 'btn', type: 'button', text: 'Entrar' });
-      enterBtn.onclick = (ev) => {
-        ev.stopPropagation();
-        parPath = e.path;
-        refreshParList().catch(err => setStatus('parStatus', String(err)));
-      };
-      actionCell.appendChild(enterBtn);
-    }
-    row.appendChild(actionCell);
-
-    row.onclick = () => {
-      parSelected = e.path;
-      const sel = document.getElementById('parSel');
-      if (sel) sel.textContent = `Seleccionado: ${e.name}`;
-      const preview = document.getElementById('parPreview');
-      if (preview) preview.textContent = 'Cargando preview...';
-      apiPostJson('/api/v2/manual/preview', { path: e.path }).then((prev) => {
-        const p = document.getElementById('parPreview');
-        if (p) p.textContent = `origen: ${prev.path}\nmodo: ${prev.mode}\ntítulo: ${prev.resolved_title || '-'}\naño: ${prev.resolved_year || '-'}\npreview_nombre: ${prev.name_preview}\nelementos: ${prev.file_count || 1}\nsalida_par2: ${prev.par_output_dir}`;
-      }).catch((err) => {
-        const p = document.getElementById('parPreview');
-        if (p) p.textContent = 'Error preview: ' + String(err);
-      });
-      const btn = document.getElementById('btnParCreate');
-      if (btn) btn.disabled = false;
-    };
-    list.appendChild(row);
-  }
-
-  if (!parPath.startsWith(UP_MEDIA_ROOT)) parPath = UP_MEDIA_ROOT;
-  setStatus('parStatus', `OK (${(data.entries || []).length})`);
-}
-
-function goUpPar() {
-  if (parPath === UP_MEDIA_ROOT) return;
-  const p = parPath.split('/').filter(Boolean);
-  p.pop();
-  parPath = '/' + p.join('/');
-  if (!parPath.startsWith(UP_MEDIA_ROOT)) parPath = UP_MEDIA_ROOT;
-  refreshParList().catch(err => setStatus('parStatus', String(err)));
 }
 
 let uploadPanelsTimer = null;
@@ -526,17 +454,6 @@ async function refreshUploadPanels() {
 
   active.forEach(it => renderItem(activeBox, it));
   recent.forEach(it => renderItem(recentBox, it));
-
-  const parBox = document.getElementById('parJobs');
-  if (parBox) {
-    parBox.innerHTML = '';
-    const parItems = items.filter(x => String((x.phase || '')).toLowerCase().includes('par2') || String((x.phase || '')).toLowerCase().includes('par') || String((x.last_line || '')).toLowerCase().includes('par2') || String((x.last_line || '')).toLowerCase().includes('par ')).filter(x => x.state === 'running' || x.state === 'queued' || x.state === 'done').slice(0, 10);
-    if (parItems.length === 0) {
-      parBox.textContent = 'Sin jobs PAR2 recientes';
-    } else {
-      parItems.forEach(it => renderItem(parBox, it));
-    }
-  }
 
   setStatus('upActiveStatus', `Activos: ${active.length}`);
   setStatus('upRecentStatus', `Últimos: ${recent.length}`);
@@ -631,7 +548,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const kind = (document.getElementById('upKind')?.value || 'movie');
         const seriesMode = (document.getElementById('upSeriesMode')?.value || 'episode');
         await apiPostJson('/api/v2/manual/upload', { path: upMediaSelected, kind, series_mode: seriesMode });
-        setStatus('upMediaStatus', 'Job de subida encolado');
+        setStatus('upMediaStatus', 'Trabajo encolado');
         refreshUploadPanels().catch(() => {});
       } catch (err) {
         setStatus('upMediaStatus', String(err));
@@ -646,25 +563,6 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshUpMedia().catch(() => {});
   }
 
-  // PAR2 explorer controls
-  if (document.getElementById('btnParRefresh')) {
-    document.getElementById('btnParRefresh').onclick = () => refreshParList().catch(err => setStatus('parStatus', String(err)));
-    document.getElementById('btnParUp').onclick = () => goUpPar();
-    const f = document.getElementById('parFilter');
-    if (f) f.oninput = () => refreshParList().catch(err => setStatus('parStatus', String(err)));
-    document.getElementById('btnParCreate').onclick = async () => {
-      try {
-        const resp = await apiPostJson('/api/v2/manual/par2', { path: parSelected });
-        setStatus('parStatus', 'Job PAR2 encolado');
-        const box = document.getElementById('parJobs');
-        if (box) box.textContent = `job: ${resp.job && resp.job.id ? resp.job.id : 'ok'}`;
-        refreshUploadPanels().catch(() => {});
-      } catch (err) {
-        setStatus('parStatus', String(err));
-      }
-    };
-    refreshParList().catch(() => {});
-  }
 
   document.getElementById('btnRestartTop').onclick = () => restartNow();
 

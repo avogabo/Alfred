@@ -299,24 +299,47 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: "+p)
 		}
 
-		// Optional PAR2 generation must only be enqueued AFTER a successful upload.
 		parEnabled := cfg.Upload.Par.Enabled && cfg.Upload.Par.RedundancyPercent > 0
-		parKeep := cfg.Upload.Par.KeepParityFiles && strings.TrimSpace(cfg.Upload.Par.Dir) != ""
-		enqueueParAfterSuccess := func() {
-			if !(parEnabled && parKeep && cfg.Upload.Par.ChainAfterUploadOK) {
+		combinedInputPath := p.Path
+		combinedStagingDir := ""
+		cleanupCombined := func() {}
+		if parEnabled {
+			emitPhase("Generando PAR (Generating PAR)")
+			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, cfg, p.Path, base)
+			if perr != nil {
+				msg := perr.Error()
+				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
+				_ = r.jobs.SetFailed(ctx, j.ID, msg)
 				return
 			}
-			relDir, err := filepath.Rel(outDir, filepath.Dir(finalNZB))
-			if err != nil {
-				relDir = ""
+			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
+			_ = os.RemoveAll(combinedStagingDir)
+			if err := os.MkdirAll(combinedStagingDir, 0o755); err != nil {
+				msg := err.Error()
+				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
+				_ = r.jobs.SetFailed(ctx, j.ID, msg)
+				return
 			}
-			keepDir := filepath.Join(strings.TrimSpace(cfg.Upload.Par.Dir), relDir)
-			_ = r.jobs.AppendLog(ctx, j.ID, "Enqueuing async PAR2 generation and upload job")
-			_, _ = r.jobs.Enqueue(ctx, jobs.TypeUploadParNZB, map[string]string{
-				"input_path": p.Path,
-				"base_name":  base,
-				"final_dir":  keepDir,
-			})
+			mediaRoot := filepath.Join(combinedStagingDir, filepath.Base(p.Path))
+			if err := cloneTree(p.Path, mediaRoot); err != nil {
+				msg := err.Error()
+				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: preparing combined payload: "+msg)
+				_ = r.jobs.SetFailed(ctx, j.ID, msg)
+				return
+			}
+			parRoot := filepath.Join(combinedStagingDir, "_par2")
+			if err := cloneTree(parStagingDir, parRoot); err != nil {
+				msg := err.Error()
+				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: preparing combined payload: "+msg)
+				_ = r.jobs.SetFailed(ctx, j.ID, msg)
+				return
+			}
+			combinedInputPath = combinedStagingDir
+			cleanupCombined = func() {
+				_ = os.RemoveAll(parStagingDir)
+				_ = os.RemoveAll(combinedStagingDir)
+			}
+			_ = r.jobs.AppendLog(ctx, j.ID, "Payload combinado preparado: media + PAR2 en un único envío")
 		}
 
 		// Provider implementation
@@ -353,8 +376,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				args = append(args, "-u", ng.User, "-p", ng.Pass)
 				// Input file/dir (nyuu supports directories; keep subdirs)
 				args = append(args, "-r", "keep")
-				// NOTE: PAR2 is kept locally only (not uploaded as part of the release).
-				args = append(args, p.Path)
+				args = append(args, combinedInputPath)
 
 				emitPhase("Subiendo a Usenet (Uploading)")
 				emitProgress(1)
@@ -419,7 +441,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 						return
 					}
 					emitProgress(100)
-					enqueueParAfterSuccess()
+					cleanupCombined()
 
 					_ = r.jobs.SetDone(ctx, j.ID)
 					// Import is handled by the NZB watcher (watch.nzb). We just drop the NZB into the inbox.
@@ -433,7 +455,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		if provider != "nyuu" {
 			// Default: ngpost
 			if ng.Enabled && ng.Host != "" && ng.User != "" && ng.Pass != "" && ng.Groups != "" {
-				args := []string{"-i", p.Path, "-o", stagingNZB, "-h", ng.Host, "-P", fmt.Sprintf("%d", ng.Port)}
+				args := []string{"-i", combinedInputPath, "-o", stagingNZB, "-h", ng.Host, "-P", fmt.Sprintf("%d", ng.Port)}
 				if ng.SSL {
 					args = append(args, "-s")
 				}
@@ -503,7 +525,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					return
 				}
 				emitProgress(100)
-				enqueueParAfterSuccess()
+				cleanupCombined()
 				_ = r.jobs.SetDone(ctx, j.ID)
 				// Import is handled by the NZB watcher (watch.nzb). We just drop the NZB into the inbox.
 				return
@@ -571,6 +593,30 @@ func moveNZBStagingToFinal(stagingPath, finalPath string) (string, error) {
 		_ = os.Remove(stagingPath)
 		return dest, nil
 	}
+}
+
+func cloneTree(src, dst string) error {
+	st, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !st.IsDir() {
+		return copyFile(src, dst)
+	}
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		return copyFile(path, target)
+	})
 }
 
 func copyFile(src, dst string) error {

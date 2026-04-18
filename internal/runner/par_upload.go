@@ -93,6 +93,129 @@ func copyFilePreserve(src string, dst string) error {
 	return os.Chtimes(dst, time.Now(), st.ModTime())
 }
 
+func collectParStagingFiles(parStagingDir string, baseName string) ([]string, error) {
+	entries, err := os.ReadDir(parStagingDir)
+	if err != nil {
+		return nil, err
+	}
+	var parFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasPrefix(e.Name(), baseName) && strings.HasSuffix(e.Name(), ".par2") {
+			parFiles = append(parFiles, filepath.Join(parStagingDir, e.Name()))
+		}
+	}
+	return parFiles, nil
+}
+
+func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, cfg config.Config, inputPath string, baseName string) (string, []string, error) {
+	cacheDir := cfg.Paths.CacheDir
+	if strings.TrimSpace(cacheDir) == "" {
+		cacheDir = "/cache"
+	}
+	parStagingDir := filepath.Join(cacheDir, "par-staging", jobID)
+	if err := os.MkdirAll(parStagingDir, 0o755); err != nil {
+		return "", nil, err
+	}
+	parBase := filepath.Join(parStagingDir, baseName)
+	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
+
+	workInputPath := inputPath
+	cleanupPath := ""
+	if strings.EqualFold(strings.TrimSpace(cfg.Upload.Par.MediaPathMode), "rclone") {
+		localRoot := filepath.Join(cacheDir, "par-input", jobID)
+		_ = os.MkdirAll(localRoot, 0o755)
+		cleanupPath = localRoot
+		if jobsStore != nil {
+			_ = jobsStore.AppendLog(ctx, jobID, "media_path_mode=rclone; copiando input a cache local antes de generar PAR")
+		}
+		copiedPath, copiedCount, copyErr := prepareParLocalInput(inputPath, localRoot)
+		if copyErr != nil {
+			_ = os.RemoveAll(localRoot)
+			return "", nil, fmt.Errorf("failed to prepare local PAR input: %w", copyErr)
+		}
+		workInputPath = copiedPath
+		if jobsStore != nil {
+			_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
+		}
+	}
+	if cleanupPath != "" {
+		defer os.RemoveAll(cleanupPath)
+	}
+
+	if st, err := os.Stat(workInputPath); err == nil && st.IsDir() {
+		files := make([]string, 0, 64)
+		_ = filepath.WalkDir(workInputPath, func(fp string, d os.DirEntry, err error) error {
+			if err != nil || d == nil {
+				return nil
+			}
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if d.IsDir() {
+				return nil
+			}
+			files = append(files, fp)
+			return nil
+		})
+		if len(files) == 0 {
+			return "", nil, fmt.Errorf("par2: no files found in directory")
+		}
+		args = append(args, "-B/", parBase+".par2")
+		args = append(args, files...)
+	} else {
+		args = append(args, "-B/", parBase+".par2", workInputPath)
+	}
+
+	tickDone := make(chan struct{})
+	go func() {
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		p := 1
+		for {
+			select {
+			case <-tickDone:
+				return
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if p < 50 && jobsStore != nil {
+					p++
+					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p/2))
+				}
+			}
+		}
+	}()
+
+	err := runCommand(ctx, func(line string) {
+		clean := strings.TrimSpace(line)
+		if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
+			if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 && jobsStore != nil {
+				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", n/2))
+			}
+			return
+		}
+		if clean != "" && jobsStore != nil {
+			_ = jobsStore.AppendLog(ctx, jobID, clean)
+		}
+	}, "par2", args...)
+	close(tickDone)
+	if err != nil {
+		return parStagingDir, nil, fmt.Errorf("par2create failed: %w", err)
+	}
+	parFiles, err := collectParStagingFiles(parStagingDir, baseName)
+	if err != nil {
+		return parStagingDir, nil, err
+	}
+	if len(parFiles) == 0 {
+		return parStagingDir, nil, fmt.Errorf("no par2 files generated")
+	}
+	return parStagingDir, parFiles, nil
+}
+
 func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	_ = r.jobs.AppendLog(ctx, j.ID, "starting PAR2 generation and upload job")
 	var p struct {
@@ -126,100 +249,10 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 
 	// Phase 1: Generate PAR2
 	_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: Generando PAR (Generating PAR)")
-	parStagingDir := filepath.Join(cacheDir, "par-staging", j.ID)
-	_ = os.MkdirAll(parStagingDir, 0o755)
+	parStagingDir, parFiles, err := generateParFiles(ctx, r.jobs, j.ID, cfg, p.InputPath, p.BaseName)
 	defer os.RemoveAll(parStagingDir)
-
-	parBase := filepath.Join(parStagingDir, p.BaseName)
-	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
-
-	workInputPath := p.InputPath
-	cleanupPath := ""
-	if strings.EqualFold(strings.TrimSpace(cfg.Upload.Par.MediaPathMode), "rclone") {
-		localRoot := filepath.Join(cacheDir, "par-input", j.ID)
-		_ = os.MkdirAll(localRoot, 0o755)
-		cleanupPath = localRoot
-		_ = r.jobs.AppendLog(ctx, j.ID, "media_path_mode=rclone; copiando input a cache local antes de generar PAR")
-		copiedPath, copiedCount, copyErr := prepareParLocalInput(p.InputPath, localRoot)
-		if copyErr != nil {
-			_ = os.RemoveAll(localRoot)
-			_ = r.jobs.SetFailed(ctx, j.ID, "failed to prepare local PAR input: "+copyErr.Error())
-			return
-		}
-		workInputPath = copiedPath
-		_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
-	}
-	if cleanupPath != "" {
-		defer os.RemoveAll(cleanupPath)
-	}
-
-	if st, err := os.Stat(workInputPath); err == nil && st.IsDir() {
-		files := make([]string, 0, 64)
-		_ = filepath.WalkDir(workInputPath, func(fp string, d os.DirEntry, err error) error {
-			if err != nil || d == nil {
-				return nil
-			}
-			name := d.Name()
-			if strings.HasPrefix(name, ".") {
-				if d.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if d.IsDir() {
-				return nil
-			}
-			files = append(files, fp)
-			return nil
-		})
-		if len(files) == 0 {
-			_ = r.jobs.SetFailed(ctx, j.ID, "par2: no files found in directory")
-			return
-		} else {
-			args = append(args, "-B/", parBase+".par2")
-			args = append(args, files...)
-		}
-	} else {
-		args = append(args, "-B/", parBase+".par2", workInputPath)
-	}
-
-	tickDone := make(chan struct{})
-	go func() {
-		t := time.NewTicker(10 * time.Second)
-		defer t.Stop()
-		p := 1
-		for {
-			select {
-			case <-tickDone:
-				return
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				if p < 50 {
-					p++
-					_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("PROGRESS: %d", p/2))
-				}
-			}
-		}
-	}()
-
-	err := runCommand(ctx, func(line string) {
-		clean := strings.TrimSpace(line)
-		if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
-			if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
-				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("PROGRESS: %d", n/2))
-			}
-			return
-		}
-		if clean != "" {
-			_ = r.jobs.AppendLog(ctx, j.ID, clean)
-		}
-	}, "par2", args...)
-
-	close(tickDone)
-
 	if err != nil {
-		_ = r.jobs.SetFailed(ctx, j.ID, "par2create failed: "+err.Error())
+		_ = r.jobs.SetFailed(ctx, j.ID, err.Error())
 		return
 	}
 
@@ -229,19 +262,6 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 	if !ng.Enabled || ng.Host == "" || ng.User == "" || ng.Pass == "" || ng.Groups == "" {
 		_ = r.jobs.SetFailed(ctx, j.ID, "ngpost/nyuu config missing or disabled")
 		return
-	}
-
-	entries, err := os.ReadDir(parStagingDir)
-	if err != nil {
-		_ = r.jobs.SetFailed(ctx, j.ID, "read par staging dir error: "+err.Error())
-		return
-	}
-
-	var parFiles []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasPrefix(e.Name(), p.BaseName) && strings.HasSuffix(e.Name(), ".par2") {
-			parFiles = append(parFiles, filepath.Join(parStagingDir, e.Name()))
-		}
 	}
 
 	if len(parFiles) == 0 {

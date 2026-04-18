@@ -191,15 +191,8 @@
         <div class="navItem active" data-page="upload">
           <div class="icon">⬆</div>
           <div>
-            <div><b>Subida</b></div>
-            <div class="muted" style="font-size:12px">Usenet upload</div>
-          </div>
-        </div>
-        <div class="navItem" data-page="par2">
-          <div class="icon">🧩</div>
-          <div>
-            <div><b>PAR2</b></div>
-            <div class="muted" style="font-size:12px">Parity creation</div>
+            <div><b>Trabajo</b></div>
+            <div class="muted" style="font-size:12px">Usenet workflow</div>
           </div>
         </div>
         <div class="navItem" data-page="settings">
@@ -223,8 +216,8 @@
         <section id="page_upload" class="hide">
           <div class="split">
             <div>
-              <h2 class="sectionTitle">Subida a Usenet (Upload)</h2>
-              <div class="muted">Puedes subir un archivo al host y encolarlo para subida.</div>
+              <h2 class="sectionTitle">Trabajo</h2>
+              <div class="muted">Flujo único: preview, creación de PAR2 y subida final en un único NZB.</div>
             </div>
             <div class="row">
               <label class="muted">Subir media (Upload media)
@@ -236,13 +229,13 @@
           <div class="card" style="margin-top:10px">
             <div class="row" style="justify-content:space-between">
               <div>
-                <h3 style="margin:0">Explorador de subida</h3>
-                <div class="muted">Explora <b>/inbox/media</b>, selecciona un archivo o carpeta y prepara la subida manual.</div>
+                <h3 style="margin:0">Explorador de trabajo</h3>
+                <div class="muted">Explora <b>/inbox/media</b>, selecciona un archivo o carpeta y prepara el flujo completo.</div>
               </div>
               <div class="row">
                 <button class="btn" id="btnUpMediaUp">Arriba (Up)</button>
                 <button class="btn" id="btnUpMediaRefresh">Actualizar (Refresh)</button>
-                <button class="btn primary" id="btnUpMediaEnqueue" disabled>Crear NZB</button>
+                <button class="btn primary" id="btnUpMediaEnqueue" disabled>Iniciar trabajo</button>
               </div>
             </div>
 
@@ -268,7 +261,7 @@
 
           <div class="grid" style="margin-top:10px">
             <div class="list" style="padding:12px">
-              <h3>Preparación de subida</h3>
+              <h3>Preparación del trabajo</h3>
               <div class="row" style="margin-top:8px; gap:12px; flex-wrap:wrap">
                 <label class="muted">Tipo
                   <select id="upKind" style="margin-left:8px">
@@ -283,79 +276,25 @@
                   </select>
                 </label>
               </div>
-              <div class="muted" style="margin-top:10px">Preview inicial. Aquí mostraremos el nombre propuesto y la salida antes de lanzar el job.</div>
+              <div class="muted" style="margin-top:10px">Preview inicial. Aquí mostraremos el nombre propuesto y la salida del NZB combinado antes de lanzar el job.</div>
               <pre id="upPreview" class="mono" style="white-space:pre-wrap; margin-top:10px"></pre>
             </div>
 
             <div class="list" style="padding:12px">
-              <h3>Procesos activos (Active uploads)</h3>
-              <div class="muted">Solo jobs de subida (upload).</div>
+              <h3>Procesos activos</h3>
+              <div class="muted">Jobs del flujo completo, incluyendo PAR2 y subida final.</div>
               <div class="muted" id="upActiveStatus"></div>
               <div id="upActive"></div>
             </div>
 
             <div class="list" style="padding:12px">
-              <h3>Últimas subidas (Recent uploads)</h3>
+              <h3>Últimos trabajos</h3>
               <div class="muted" id="upRecentStatus"></div>
               <div id="upRecent"></div>
             </div>
           </div>
         </section>
 
-        <section id="page_par2" class="hide">
-          <div class="split">
-            <div>
-              <h2 class="sectionTitle">PAR2</h2>
-              <div class="muted">Generación manual de PAR2 para archivo individual o carpeta completa.</div>
-            </div>
-          </div>
-
-          <div class="card" style="margin-top:10px">
-            <div class="row" style="justify-content:space-between">
-              <div>
-                <h3 style="margin:0">Explorador PAR2</h3>
-                <div class="muted">Navega la carpeta de media y selecciona archivo o carpeta para generar PAR2 manualmente.</div>
-              </div>
-              <div class="row">
-                <button class="btn" id="btnParUp">Arriba (Up)</button>
-                <button class="btn" id="btnParRefresh">Actualizar (Refresh)</button>
-                <button class="btn primary" id="btnParCreate" disabled>Crear PAR2</button>
-              </div>
-            </div>
-
-            <div class="row" style="margin-top:8px">
-              <div class="crumbs" id="parCrumbs" style="flex:1"></div>
-              <input id="parFilter" placeholder="Filtrar nombre..." style="min-width:220px" />
-            </div>
-
-            <div class="grid" style="margin-top:8px">
-              <div class="list">
-                <div class="listHeader" style="grid-template-columns: 1fr 110px 190px 90px;">
-                  <div>Nombre (Name)</div>
-                  <div class="mono">Size</div>
-                  <div class="mono">ModTime</div>
-                  <div>Acción</div>
-                </div>
-                <div id="parList"></div>
-              </div>
-            </div>
-            <div class="muted" style="margin-top:8px" id="parSel">(nada seleccionado)</div>
-            <div class="muted" id="parStatus"></div>
-          </div>
-
-          <div class="grid" style="margin-top:10px">
-            <div class="list" style="padding:12px">
-              <h3>Preview PAR2</h3>
-              <div class="muted">Vista previa inicial. Aquí mostraremos nombre base, ruta origen y salida esperada.</div>
-              <pre id="parPreview" class="mono" style="white-space:pre-wrap; margin-top:10px"></pre>
-            </div>
-            <div class="list" style="padding:12px">
-              <h3>Progreso PAR2</h3>
-              <div class="muted">Último job manual de paridad.</div>
-              <div id="parJobs"></div>
-            </div>
-          </div>
-        </section>
 
         <!-- Settings page placeholder -->
         <section id="page_settings" class="hide">
@@ -586,7 +525,7 @@
     </div>
   </div>
 
-  <script src="/webui/app2.js?v=1.6.39"></script>
+  <script src="/webui/app2.js?v=2.2.0"></script>
   <script src="/webui/upload2.js"></script>
 
     <div id="compatGhost" style="display:none">
