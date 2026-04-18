@@ -114,7 +114,13 @@ func payloadPath(payloadJSON []byte) string {
 		return ""
 	}
 	v, _ := m["path"].(string)
-	return strings.TrimSpace(v)
+	if strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	if v, _ = m["input_path"].(string); strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }
 
 func (s *Store) List(ctx context.Context, limit int) ([]Job, error) {

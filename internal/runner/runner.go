@@ -303,36 +303,27 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		combinedInputPath := p.Path
 		combinedStagingDir := ""
 		cleanupCombined := func() {}
-		if parEnabled {
+		buildCombinedPayload := func() error {
+			if !parEnabled {
+				return nil
+			}
 			emitPhase("Generando PAR (Generating PAR)")
 			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, cfg, p.Path, base)
 			if perr != nil {
-				msg := perr.Error()
-				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
-				_ = r.jobs.SetFailed(ctx, j.ID, msg)
-				return
+				return perr
 			}
 			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
 			_ = os.RemoveAll(combinedStagingDir)
 			if err := os.MkdirAll(combinedStagingDir, 0o755); err != nil {
-				msg := err.Error()
-				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
-				_ = r.jobs.SetFailed(ctx, j.ID, msg)
-				return
+				return err
 			}
 			mediaRoot := filepath.Join(combinedStagingDir, filepath.Base(p.Path))
 			if err := cloneTree(p.Path, mediaRoot); err != nil {
-				msg := err.Error()
-				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: preparing combined payload: "+msg)
-				_ = r.jobs.SetFailed(ctx, j.ID, msg)
-				return
+				return fmt.Errorf("preparing combined payload: %w", err)
 			}
 			parRoot := filepath.Join(combinedStagingDir, "_par2")
 			if err := cloneTree(parStagingDir, parRoot); err != nil {
-				msg := err.Error()
-				_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: preparing combined payload: "+msg)
-				_ = r.jobs.SetFailed(ctx, j.ID, msg)
-				return
+				return fmt.Errorf("preparing combined payload: %w", err)
 			}
 			combinedInputPath = combinedStagingDir
 			cleanupCombined = func() {
@@ -340,6 +331,14 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				_ = os.RemoveAll(combinedStagingDir)
 			}
 			_ = r.jobs.AppendLog(ctx, j.ID, "Payload combinado preparado: media + PAR2 en un único envío")
+			return nil
+		}
+
+		if err := buildCombinedPayload(); err != nil {
+			msg := err.Error()
+			_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
+			_ = r.jobs.SetFailed(ctx, j.ID, msg)
+			return
 		}
 
 		// Provider implementation
