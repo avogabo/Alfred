@@ -393,8 +393,9 @@ async function refreshUploadPreview() {
       `año: ${prev.resolved_year || '-'}`,
       `season/episode: ${prev.season || 0}/${prev.episode || 0}`,
       `preview_nombre: ${prev.name_preview}`,
-      `salida_nzb_unico: ${prev.nzb_output}`,
+      `salida_nzb_unico: ${prev.combined_nzb_output || prev.nzb_output}`,
       `par_previo: sí, antes de subir`,
+      `ruta_par_local: ${prev.par_keep_dir || '-'}`,
       `elementos: ${prev.file_count || 1}`
     ].join('\n');
   } catch (e) {

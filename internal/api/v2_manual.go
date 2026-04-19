@@ -183,7 +183,7 @@ func (s *Server) registerV2ManualRoutes() {
 			"episode":             g.Episode,
 			"nzb_output":          nzbOut,
 			"combined_nzb_output": nzbOut,
-			"par_output_dir":      parDir,
+			"par_keep_dir":        parDir,
 			"is_dir":              st.IsDir(),
 			"size":                st.Size(),
 			"file_count":          fileCount,
