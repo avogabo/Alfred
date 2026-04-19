@@ -19,7 +19,6 @@ type State string
 const (
 	TypeImport       Type = "import_nzb"
 	TypeUpload       Type = "upload_media"
-	TypeUploadParNZB Type = "upload_par_nzb"
 	TypeHealthRepair Type = "health_repair_nzb"
 	TypeHealthScan   Type = "health_scan_nzb"
 

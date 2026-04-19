@@ -62,7 +62,6 @@ func (r *Runner) hasOtherRunningUpload(ctx context.Context, currentID string) bo
 
 func (r *Runner) Run(ctx context.Context) {
 	semUpload := make(chan struct{}, r.UploadConcurrency)
-	semPar := make(chan struct{}, 1) // separate concurrency queue for PAR
 	t := time.NewTicker(r.PollInterval)
 	defer t.Stop()
 
@@ -92,12 +91,6 @@ func (r *Runner) Run(ctx context.Context) {
 				go func(j *jobs.Job) {
 					defer func() { <-semUpload }()
 					r.runUpload(ctx, j)
-				}(job)
-			case jobs.TypeUploadParNZB:
-				semPar <- struct{}{}
-				go func(j *jobs.Job) {
-					defer func() { <-semPar }()
-					r.runUploadParNZB(ctx, j)
 				}(job)
 			default:
 				go r.runImport(ctx, job)
