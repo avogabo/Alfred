@@ -132,8 +132,8 @@ async function loadUploadSettings() {
   setChk('setNntpObfuscate', !!ng.obfuscate);
 
   setChk('setParEnabled', !!par.enabled);
-  setVal('setParRedundancy', par.redundancy || 0);
-  setChk('setParKeepFiles', !!par.keep_files);
+  setVal('setParRedundancy', par.redundancy_percent || 20);
+  setChk('setParKeepFiles', !!par.keep_parity_files);
   setVal('setParDir', par.dir || '/host/inbox/par2');
   setVal('setParMediaPathMode', par.media_path_mode || 'local');
 
@@ -189,8 +189,8 @@ async function saveUploadSettings() {
   cfg.ngpost.obfuscate = chk('setNntpObfuscate');
 
   cfg.upload.par.enabled = chk('setParEnabled');
-  cfg.upload.par.redundancy = _num(val('setParRedundancy'));
-  cfg.upload.par.keep_files = chk('setParKeepFiles');
+  cfg.upload.par.redundancy_percent = _num(val('setParRedundancy')) || 20;
+  cfg.upload.par.keep_parity_files = chk('setParKeepFiles');
   cfg.upload.par.dir = val('setParDir').trim();
   cfg.upload.par.media_path_mode = val('setParMediaPathMode') || 'local';
 
