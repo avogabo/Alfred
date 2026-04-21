@@ -295,6 +295,8 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			span := end - start
 			emitProgress(start + (span*raw)/100)
 		}
+		stageStart := 0
+		stageEnd := 100
 		lastPhase := ""
 		emitPhase := func(p string) {
 			p = strings.TrimSpace(p)
@@ -316,10 +318,11 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				return err
 			}
 			if !parEnabled {
+				stageStart, stageEnd = 0, 35
 				emitPhase("Preparando payload (Preparing payload)")
 				if err := cloneTreeFlatWithProgress(p.Path, combinedStagingDir, func(doneBytes, totalBytes int64) {
 					if totalBytes > 0 {
-						scaleProgress(0, 35, int((doneBytes*100)/totalBytes))
+						scaleProgress(stageStart, stageEnd, int((doneBytes*100)/totalBytes))
 					}
 				}); err != nil {
 					return fmt.Errorf("preparing combined payload: %w", err)
@@ -331,21 +334,23 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				}
 				return nil
 			}
-			emitPhase("Generando PAR (Generating PAR)")
+			stageStart, stageEnd = 0, 15
+			emitPhase("Preparando payload (Preparing payload)")
 			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, cfg, p.Path, base)
 			if perr != nil {
 				return perr
 			}
 			if err := cloneTreeFlatWithProgress(p.Path, combinedStagingDir, func(doneBytes, totalBytes int64) {
 				if totalBytes > 0 {
-					scaleProgress(0, 15, int((doneBytes*100)/totalBytes))
+					scaleProgress(stageStart, stageEnd, int((doneBytes*100)/totalBytes))
 				}
 			}); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
+			stageStart, stageEnd = 35, 40
 			if err := cloneTreeFlatWithProgress(parStagingDir, combinedStagingDir, func(doneBytes, totalBytes int64) {
 				if totalBytes > 0 {
-					scaleProgress(35, 40, int((doneBytes*100)/totalBytes))
+					scaleProgress(stageStart, stageEnd, int((doneBytes*100)/totalBytes))
 				}
 			}); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
@@ -403,15 +408,16 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				args = append(args, "-r", "keep")
 				args = append(args, combinedInputPath)
 
+				stageStart, stageEnd = 40, 98
 				emitPhase("Subiendo a Usenet (Uploading)")
-				emitProgress(40)
+				emitProgress(stageStart)
 				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("nyuu: %s %s", r.NyuuPath, strings.Join(args[:min(10, len(args))], " ")))
 				err := runCommand(ctx, func(line string) {
 					clean := sanitizeLine(line, ng.Pass)
 					_ = r.jobs.AppendLog(ctx, j.ID, clean)
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 						if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
-							scaleProgress(40, 98, n)
+							scaleProgress(stageStart, stageEnd, n)
 						}
 					}
 					if m := reArticlesProgress.FindStringSubmatch(clean); len(m) == 3 {
@@ -431,7 +437,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 								if den > 0 {
 									p := (postedN * 100) / den
 									if p >= 0 && p <= 100 {
-										scaleProgress(40, 98, p)
+										scaleProgress(stageStart, stageEnd, p)
 									}
 								}
 							}
@@ -442,7 +448,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 							if total, e2 := strconv.Atoi(m[2]); e2 == nil && total > 0 {
 								p := (done * 100) / total
 								if p > 0 {
-									scaleProgress(40, 98, p)
+									scaleProgress(stageStart, stageEnd, p)
 								}
 							}
 						}

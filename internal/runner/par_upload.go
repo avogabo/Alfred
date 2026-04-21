@@ -183,7 +183,7 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 	go func() {
 		t := time.NewTicker(8 * time.Second)
 		defer t.Stop()
-		p := 15
+		last := 15
 		for {
 			select {
 			case <-tickDone:
@@ -191,12 +191,9 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				if p < 70 && jobsStore != nil {
-					p += 2
-					if p > 70 {
-						p = 70
-					}
-					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+				if last < 68 && jobsStore != nil {
+					last++
+					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", last))
 				}
 			}
 		}
@@ -206,8 +203,7 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		clean := strings.TrimSpace(line)
 		if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 			if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 && jobsStore != nil {
-				p := 15 + (n * 55 / 100)
-				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", n))
 			}
 			return
 		}
