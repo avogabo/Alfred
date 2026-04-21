@@ -117,7 +117,7 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		return "", nil, err
 	}
 	parBase := filepath.Join(parStagingDir, baseName)
-	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent)}
+	args := []string{"c", fmt.Sprintf("-r%d", cfg.Upload.Par.RedundancyPercent), "-B", parStagingDir}
 
 	workInputPath := inputPath
 	cleanupPath := ""
@@ -158,16 +158,24 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 			if d.IsDir() {
 				return nil
 			}
-			files = append(files, fp)
+			dst := filepath.Join(parStagingDir, filepath.Base(fp))
+			if err := copyFile(fp, dst); err != nil {
+				return err
+			}
+			files = append(files, dst)
 			return nil
 		})
 		if len(files) == 0 {
 			return "", nil, fmt.Errorf("par2: no files found in directory")
 		}
-		args = append(args, "-B/", parBase+".par2")
+		args = append(args, parBase+".par2")
 		args = append(args, files...)
 	} else {
-		args = append(args, "-B/", parBase+".par2", workInputPath)
+		dst := filepath.Join(parStagingDir, filepath.Base(workInputPath))
+		if err := copyFile(workInputPath, dst); err != nil {
+			return "", nil, err
+		}
+		args = append(args, parBase+".par2", dst)
 	}
 
 	tickDone := make(chan struct{})

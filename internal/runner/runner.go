@@ -310,12 +310,10 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			if err := os.MkdirAll(combinedStagingDir, 0o755); err != nil {
 				return err
 			}
-			mediaRoot := filepath.Join(combinedStagingDir, filepath.Base(p.Path))
-			if err := cloneTree(p.Path, mediaRoot); err != nil {
+			if err := cloneTreeFlat(p.Path, combinedStagingDir); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
-			parRoot := filepath.Join(combinedStagingDir, "_par2")
-			if err := cloneTree(parStagingDir, parRoot); err != nil {
+			if err := cloneTreeFlat(parStagingDir, combinedStagingDir); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
 			combinedInputPath = combinedStagingDir
@@ -587,27 +585,31 @@ func moveNZBStagingToFinal(stagingPath, finalPath string) (string, error) {
 	}
 }
 
-func cloneTree(src, dst string) error {
+func cloneTreeFlat(src, dst string) error {
 	st, err := os.Stat(src)
 	if err != nil {
 		return err
 	}
-	if !st.IsDir() {
-		return copyFile(src, dst)
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return err
 	}
+	if !st.IsDir() {
+		return copyFile(src, filepath.Join(dst, filepath.Base(src)))
+	}
+	seen := map[string]string{}
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
 		if info.IsDir() {
-			return os.MkdirAll(target, 0o755)
+			return nil
 		}
-		return copyFile(path, target)
+		name := filepath.Base(path)
+		if prev, ok := seen[name]; ok {
+			return fmt.Errorf("flat payload collision for %q (%s, %s)", name, prev, path)
+		}
+		seen[name] = path
+		return copyFile(path, filepath.Join(dst, name))
 	})
 }
 
