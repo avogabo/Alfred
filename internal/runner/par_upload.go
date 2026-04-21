@@ -136,6 +136,7 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		workInputPath = copiedPath
 		if jobsStore != nil {
 			_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
+			_ = jobsStore.AppendLog(ctx, jobID, "PHASE: Generando PAR (Generating PAR)")
 		}
 	}
 	if cleanupPath != "" {
@@ -180,9 +181,9 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 
 	tickDone := make(chan struct{})
 	go func() {
-		t := time.NewTicker(10 * time.Second)
+		t := time.NewTicker(8 * time.Second)
 		defer t.Stop()
-		p := 1
+		p := 15
 		for {
 			select {
 			case <-tickDone:
@@ -190,9 +191,12 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				if p < 50 && jobsStore != nil {
-					p++
-					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p/2))
+				if p < 70 && jobsStore != nil {
+					p += 2
+					if p > 70 {
+						p = 70
+					}
+					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
 				}
 			}
 		}
@@ -202,7 +206,8 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		clean := strings.TrimSpace(line)
 		if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 			if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 && jobsStore != nil {
-				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", n/2))
+				p := 15 + (n * 55 / 100)
+				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
 			}
 			return
 		}
