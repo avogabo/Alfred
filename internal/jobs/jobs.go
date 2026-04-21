@@ -179,7 +179,7 @@ func (s *Store) GetLogs(ctx context.Context, jobID string, limit int) ([]string,
 	if limit <= 0 || limit > 5000 {
 		limit = 500
 	}
-	rows, err := s.db.SQL.QueryContext(ctx, `SELECT line FROM job_logs WHERE job_id=? ORDER BY ts DESC LIMIT ?`, jobID, limit)
+	rows, err := s.db.SQL.QueryContext(ctx, `SELECT line FROM job_logs WHERE job_id=? ORDER BY ts DESC, rowid DESC LIMIT ?`, jobID, limit)
 	if err != nil {
 		return nil, err
 	}
