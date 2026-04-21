@@ -310,8 +310,25 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		combinedStagingDir := ""
 		cleanupCombined := func() {}
 		buildCombinedPayload := func() error {
+			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
+			_ = os.RemoveAll(combinedStagingDir)
+			if err := os.MkdirAll(combinedStagingDir, 0o755); err != nil {
+				return err
+			}
 			if !parEnabled {
-				emitProgress(10)
+				emitPhase("Preparando payload (Preparing payload)")
+				if err := cloneTreeFlatWithProgress(p.Path, combinedStagingDir, func(doneBytes, totalBytes int64) {
+					if totalBytes > 0 {
+						scaleProgress(0, 35, int((doneBytes*100)/totalBytes))
+					}
+				}); err != nil {
+					return fmt.Errorf("preparing combined payload: %w", err)
+				}
+				combinedInputPath = combinedStagingDir
+				emitProgress(35)
+				cleanupCombined = func() {
+					_ = os.RemoveAll(combinedStagingDir)
+				}
 				return nil
 			}
 			emitPhase("Generando PAR (Generating PAR)")
@@ -319,19 +336,22 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			if perr != nil {
 				return perr
 			}
-			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
-			_ = os.RemoveAll(combinedStagingDir)
-			if err := os.MkdirAll(combinedStagingDir, 0o755); err != nil {
-				return err
-			}
-			if err := cloneTreeFlat(p.Path, combinedStagingDir); err != nil {
+			if err := cloneTreeFlatWithProgress(p.Path, combinedStagingDir, func(doneBytes, totalBytes int64) {
+				if totalBytes > 0 {
+					scaleProgress(0, 15, int((doneBytes*100)/totalBytes))
+				}
+			}); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
-			if err := cloneTreeFlat(parStagingDir, combinedStagingDir); err != nil {
+			if err := cloneTreeFlatWithProgress(parStagingDir, combinedStagingDir, func(doneBytes, totalBytes int64) {
+				if totalBytes > 0 {
+					scaleProgress(35, 40, int((doneBytes*100)/totalBytes))
+				}
+			}); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
 			combinedInputPath = combinedStagingDir
-			emitProgress(35)
+			emitProgress(40)
 			cleanupCombined = func() {
 				_ = os.RemoveAll(parStagingDir)
 				_ = os.RemoveAll(combinedStagingDir)
@@ -601,6 +621,10 @@ func moveNZBStagingToFinal(stagingPath, finalPath string) (string, error) {
 }
 
 func cloneTreeFlat(src, dst string) error {
+		return cloneTreeFlatWithProgress(src, dst, nil)
+}
+
+func cloneTreeFlatWithProgress(src, dst string, onProgress func(doneBytes, totalBytes int64)) error {
 	st, err := os.Stat(src)
 	if err != nil {
 		return err
@@ -609,10 +633,13 @@ func cloneTreeFlat(src, dst string) error {
 		return err
 	}
 	if !st.IsDir() {
-		return copyFile(src, filepath.Join(dst, filepath.Base(src)))
+		_, err := copyFileWithProgress(src, filepath.Join(dst, filepath.Base(src)), onProgress)
+		return err
 	}
 	seen := map[string]string{}
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	var files []string
+	var totalBytes int64
+	if err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -624,32 +651,85 @@ func cloneTreeFlat(src, dst string) error {
 			return fmt.Errorf("flat payload collision for %q (%s, %s)", name, prev, path)
 		}
 		seen[name] = path
-		return copyFile(path, filepath.Join(dst, name))
-	})
+		files = append(files, path)
+		totalBytes += info.Size()
+		return nil
+	}); err != nil {
+		return err
+	}
+	var doneBytes int64
+	for _, path := range files {
+		name := filepath.Base(path)
+		written, err := copyFileWithProgress(path, filepath.Join(dst, name), func(written, _ int64) {
+			if onProgress != nil {
+				onProgress(doneBytes+written, totalBytes)
+			}
+		})
+		if err != nil {
+			return err
+		}
+		doneBytes += written
+		if onProgress != nil {
+			onProgress(doneBytes, totalBytes)
+		}
+	}
+	return nil
 }
 
 func copyFile(src, dst string) error {
+	_, err := copyFileWithProgress(src, dst, nil)
+	return err
+}
+
+func copyFileWithProgress(src, dst string, onProgress func(written, total int64)) (int64, error) {
 	in, err := os.Open(src)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer in.Close()
 
+	st, err := in.Stat()
+	if err != nil {
+		return 0, err
+	}
+	total := st.Size()
+
 	out, err := os.Create(dst)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() {
 		_ = out.Close()
 	}()
 
-	if _, err := io.Copy(out, in); err != nil {
-		return err
+	buf := make([]byte, 1024*1024)
+	var written int64
+	for {
+		n, readErr := in.Read(buf)
+		if n > 0 {
+			wn, writeErr := out.Write(buf[:n])
+			written += int64(wn)
+			if onProgress != nil {
+				onProgress(written, total)
+			}
+			if writeErr != nil {
+				return written, writeErr
+			}
+			if wn != n {
+				return written, io.ErrShortWrite
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return written, readErr
+		}
 	}
 	if err := out.Sync(); err != nil {
-		return err
+		return written, err
 	}
-	return out.Close()
+	return written, out.Close()
 }
 
 func detectSeasonFromName(name string) int {
