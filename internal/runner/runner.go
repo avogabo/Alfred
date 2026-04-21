@@ -282,6 +282,19 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			lastProgress = p
 			_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("PROGRESS: %d", p))
 		}
+		scaleProgress := func(start, end, raw int) {
+			if raw < 0 {
+				raw = 0
+			}
+			if raw > 100 {
+				raw = 100
+			}
+			if end < start {
+				end = start
+			}
+			span := end - start
+			emitProgress(start + (span*raw)/100)
+		}
 		lastPhase := ""
 		emitPhase := func(p string) {
 			p = strings.TrimSpace(p)
@@ -298,6 +311,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		cleanupCombined := func() {}
 		buildCombinedPayload := func() error {
 			if !parEnabled {
+				emitProgress(10)
 				return nil
 			}
 			emitPhase("Generando PAR (Generating PAR)")
@@ -317,6 +331,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
 			combinedInputPath = combinedStagingDir
+			emitProgress(35)
 			cleanupCombined = func() {
 				_ = os.RemoveAll(parStagingDir)
 				_ = os.RemoveAll(combinedStagingDir)
@@ -369,14 +384,14 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				args = append(args, combinedInputPath)
 
 				emitPhase("Subiendo a Usenet (Uploading)")
-				emitProgress(1)
+				emitProgress(40)
 				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("nyuu: %s %s", r.NyuuPath, strings.Join(args[:min(10, len(args))], " ")))
 				err := runCommand(ctx, func(line string) {
 					clean := sanitizeLine(line, ng.Pass)
 					_ = r.jobs.AppendLog(ctx, j.ID, clean)
 					if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
 						if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
-							emitProgress(n)
+							scaleProgress(40, 98, n)
 						}
 					}
 					if m := reArticlesProgress.FindStringSubmatch(clean); len(m) == 3 {
@@ -396,7 +411,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 								if den > 0 {
 									p := (postedN * 100) / den
 									if p >= 0 && p <= 100 {
-										emitProgress(p)
+										scaleProgress(40, 98, p)
 									}
 								}
 							}
@@ -407,7 +422,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 							if total, e2 := strconv.Atoi(m[2]); e2 == nil && total > 0 {
 								p := (done * 100) / total
 								if p > 0 {
-									emitProgress(p)
+									scaleProgress(40, 98, p)
 								}
 							}
 						}
