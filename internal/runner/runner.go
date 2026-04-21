@@ -423,7 +423,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					if m := reArticlesProgress.FindStringSubmatch(clean); len(m) == 3 {
 						if done, e1 := strconv.Atoi(m[1]); e1 == nil {
 							if total, e2 := strconv.Atoi(m[2]); e2 == nil && total > 0 {
-								emitProgress((done * 100) / total)
+								scaleProgress(stageStart, stageEnd, (done*100)/total)
 							}
 						}
 					}

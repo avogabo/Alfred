@@ -15,14 +15,18 @@ import (
 	"github.com/avogabo/AlfredEDR/internal/jobs"
 )
 
-func prepareParLocalInput(inputPath string, localRoot string) (string, int, error) {
+func prepareParLocalInput(inputPath string, localRoot string, onProgress func(doneBytes, totalBytes int64)) (string, int, error) {
 	st, err := os.Stat(inputPath)
 	if err != nil {
 		return "", 0, err
 	}
 	if !st.IsDir() {
 		dst := filepath.Join(localRoot, filepath.Base(inputPath))
-		if err := copyFilePreserve(inputPath, dst); err != nil {
+		if _, err := copyFileWithProgress(inputPath, dst, func(written, total int64) {
+			if onProgress != nil {
+				onProgress(written, total)
+			}
+		}); err != nil {
 			return "", 0, err
 		}
 		return dst, 1, nil
@@ -33,6 +37,8 @@ func prepareParLocalInput(inputPath string, localRoot string) (string, int, erro
 		baseName = "input"
 	}
 	dstRoot := filepath.Join(localRoot, baseName)
+	var files []string
+	var totalBytes int64
 	if err := filepath.WalkDir(inputPath, func(src string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil || d == nil {
 			return walkErr
@@ -44,21 +50,43 @@ func prepareParLocalInput(inputPath string, localRoot string) (string, int, erro
 			}
 			return nil
 		}
-		rel, err := filepath.Rel(inputPath, src)
+		if d.IsDir() {
+			rel, err := filepath.Rel(inputPath, src)
+			if err != nil {
+				return err
+			}
+			return os.MkdirAll(filepath.Join(dstRoot, rel), 0o755)
+		}
+		info, err := d.Info()
 		if err != nil {
 			return err
 		}
-		dst := filepath.Join(dstRoot, rel)
-		if d.IsDir() {
-			return os.MkdirAll(dst, 0o755)
-		}
-		if err := copyFilePreserve(src, dst); err != nil {
-			return err
-		}
-		filesCopied++
+		files = append(files, src)
+		totalBytes += info.Size()
 		return nil
 	}); err != nil {
 		return "", filesCopied, err
+	}
+	var doneBytes int64
+	for _, src := range files {
+		rel, err := filepath.Rel(inputPath, src)
+		if err != nil {
+			return "", filesCopied, err
+		}
+		dst := filepath.Join(dstRoot, rel)
+		written, err := copyFileWithProgress(src, dst, func(written, _ int64) {
+			if onProgress != nil {
+				onProgress(doneBytes+written, totalBytes)
+			}
+		})
+		if err != nil {
+			return "", filesCopied, err
+		}
+		doneBytes += written
+		filesCopied++
+		if onProgress != nil {
+			onProgress(doneBytes, totalBytes)
+		}
 	}
 	return dstRoot, filesCopied, nil
 }
@@ -128,7 +156,12 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		if jobsStore != nil {
 			_ = jobsStore.AppendLog(ctx, jobID, "media_path_mode=rclone; copiando input a cache local antes de generar PAR")
 		}
-		copiedPath, copiedCount, copyErr := prepareParLocalInput(inputPath, localRoot)
+		copiedPath, copiedCount, copyErr := prepareParLocalInput(inputPath, localRoot, func(doneBytes, totalBytes int64) {
+			if jobsStore != nil && totalBytes > 0 {
+				p := int((doneBytes * 100) / totalBytes)
+				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+			}
+		})
 		if copyErr != nil {
 			_ = os.RemoveAll(localRoot)
 			return "", nil, fmt.Errorf("failed to prepare local PAR input: %w", copyErr)
@@ -137,6 +170,7 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		if jobsStore != nil {
 			_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
 			_ = jobsStore.AppendLog(ctx, jobID, "PHASE: Generando PAR (Generating PAR)")
+			_ = jobsStore.AppendLog(ctx, jobID, "PROGRESS: 0")
 		}
 	}
 	if cleanupPath != "" {
