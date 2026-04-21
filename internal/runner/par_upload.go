@@ -135,7 +135,7 @@ func collectParStagingFiles(parStagingDir string, baseName string) ([]string, er
 	return parFiles, nil
 }
 
-func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, cfg config.Config, inputPath string, baseName string) (string, []string, error) {
+func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, cfg config.Config, inputPath string, baseName string, emitProgress func(int)) (string, []string, error) {
 	cacheDir := cfg.Paths.CacheDir
 	if strings.TrimSpace(cacheDir) == "" {
 		cacheDir = "/cache"
@@ -158,11 +158,15 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		}
 		lastCopyProgress := -1
 		copiedPath, copiedCount, copyErr := prepareParLocalInput(inputPath, localRoot, func(doneBytes, totalBytes int64) {
-			if jobsStore != nil && totalBytes > 0 {
+			if totalBytes > 0 {
 				p := int((doneBytes * 100) / totalBytes)
 				if p != lastCopyProgress {
 					lastCopyProgress = p
-					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+					if emitProgress != nil {
+						emitProgress(p)
+					} else if jobsStore != nil {
+						_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+					}
 				}
 			}
 		})
@@ -174,7 +178,9 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		if jobsStore != nil {
 			_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
 			_ = jobsStore.AppendLog(ctx, jobID, "PHASE: Generando PAR (Generating PAR)")
-			_ = jobsStore.AppendLog(ctx, jobID, "PROGRESS: 0")
+		}
+		if emitProgress != nil {
+			emitProgress(0)
 		}
 	}
 	if cleanupPath != "" {
@@ -221,7 +227,7 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 	go func() {
 		t := time.NewTicker(8 * time.Second)
 		defer t.Stop()
-		last := 15
+		last := -1
 		for {
 			select {
 			case <-tickDone:
@@ -229,9 +235,10 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				if last < 68 && jobsStore != nil {
-					last++
-					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", last))
+				if emitProgress != nil && last >= 0 && last < 99 {
+					next := last + 1
+					last = next
+					emitProgress(next)
 				}
 			}
 		}
@@ -240,8 +247,10 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 	err := runCommand(ctx, func(line string) {
 		clean := strings.TrimSpace(line)
 		if m := rePercent.FindStringSubmatch(clean); len(m) == 2 {
-			if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 && jobsStore != nil {
-				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", n))
+			if n, e := strconv.Atoi(m[1]); e == nil && n >= 0 && n <= 100 {
+				if emitProgress != nil {
+					emitProgress(n)
+				}
 			}
 			return
 		}
@@ -296,7 +305,9 @@ func (r *Runner) runUploadParNZB(ctx context.Context, j *jobs.Job) {
 
 	// Phase 1: Generate PAR2
 	_ = r.jobs.AppendLog(ctx, j.ID, "PHASE: Generando PAR (Generating PAR)")
-	parStagingDir, parFiles, err := generateParFiles(ctx, r.jobs, j.ID, cfg, p.InputPath, p.BaseName)
+	parStagingDir, parFiles, err := generateParFiles(ctx, r.jobs, j.ID, cfg, p.InputPath, p.BaseName, func(raw int) {
+		_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("PROGRESS: %d", raw))
+	})
 	defer os.RemoveAll(parStagingDir)
 	if err != nil {
 		_ = r.jobs.SetFailed(ctx, j.ID, err.Error())

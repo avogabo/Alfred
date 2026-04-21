@@ -335,20 +335,22 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				}
 				return nil
 			}
-			stageStart, stageEnd = 0, 15
+			stageStart, stageEnd = 0, 35
 			emitPhase("Preparando payload (Preparing payload)")
-			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, cfg, p.Path, base)
+			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, cfg, p.Path, base, func(raw int) {
+				scaleProgress(stageStart, stageEnd, raw)
+			})
 			if perr != nil {
 				return perr
 			}
 			if err := cloneTreeFlatWithProgress(p.Path, combinedStagingDir, func(doneBytes, totalBytes int64) {
 				if totalBytes > 0 {
-					scaleProgress(stageStart, stageEnd, int((doneBytes*100)/totalBytes))
+					scaleProgress(35, 45, int((doneBytes*100)/totalBytes))
 				}
 			}); err != nil {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
-			stageStart, stageEnd = 35, 40
+			stageStart, stageEnd = 45, 50
 			if err := cloneTreeFlatWithProgress(parStagingDir, combinedStagingDir, func(doneBytes, totalBytes int64) {
 				if totalBytes > 0 {
 					scaleProgress(stageStart, stageEnd, int((doneBytes*100)/totalBytes))
@@ -357,7 +359,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				return fmt.Errorf("preparing combined payload: %w", err)
 			}
 			combinedInputPath = combinedStagingDir
-			emitProgress(40)
+			emitProgress(50)
 			cleanupCombined = func() {
 				_ = os.RemoveAll(parStagingDir)
 				_ = os.RemoveAll(combinedStagingDir)
@@ -409,7 +411,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				args = append(args, "-r", "keep")
 				args = append(args, combinedInputPath)
 
-				stageStart, stageEnd = 40, 98
+				stageStart, stageEnd = 50, 98
 				lastProgress = -1
 				emitPhase("Subiendo a Usenet (Uploading)")
 				emitProgress(stageStart)
