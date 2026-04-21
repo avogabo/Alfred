@@ -77,20 +77,19 @@ func (s *Server) registerUploadSummaryRoutes() {
 			lastLine := ""
 			if len(lines) > 0 {
 				lastLine = lines[0]
-				for _, ln := range lines {
-					l := strings.TrimSpace(ln)
+				for i := len(lines) - 1; i >= 0; i-- {
+					l := strings.TrimSpace(lines[i])
 					if strings.HasPrefix(l, "PHASE:") {
 						phase = strings.TrimSpace(strings.TrimPrefix(l, "PHASE:"))
 						break
 					}
 				}
-				for _, ln := range lines {
-					l := strings.TrimSpace(ln)
+				for i := len(lines) - 1; i >= 0; i-- {
+					l := strings.TrimSpace(lines[i])
 					if strings.HasPrefix(l, "PROGRESS:") {
 						v := strings.TrimSpace(strings.TrimPrefix(l, "PROGRESS:"))
-						// best-effort parse int
-						for i := 0; i < len(v); i++ {
-							if v[i] < '0' || v[i] > '9' { v = v[:i]; break }
+						for j := 0; j < len(v); j++ {
+							if v[j] < '0' || v[j] > '9' { v = v[:j]; break }
 						}
 						if v != "" {
 							var n int
