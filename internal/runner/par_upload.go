@@ -156,10 +156,14 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 		if jobsStore != nil {
 			_ = jobsStore.AppendLog(ctx, jobID, "media_path_mode=rclone; copiando input a cache local antes de generar PAR")
 		}
+		lastCopyProgress := -1
 		copiedPath, copiedCount, copyErr := prepareParLocalInput(inputPath, localRoot, func(doneBytes, totalBytes int64) {
 			if jobsStore != nil && totalBytes > 0 {
 				p := int((doneBytes * 100) / totalBytes)
-				_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+				if p != lastCopyProgress {
+					lastCopyProgress = p
+					_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("PROGRESS: %d", p))
+				}
 			}
 		})
 		if copyErr != nil {

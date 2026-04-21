@@ -312,6 +312,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		combinedStagingDir := ""
 		cleanupCombined := func() {}
 		buildCombinedPayload := func() error {
+			lastProgress = -1
 			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
 			_ = os.RemoveAll(combinedStagingDir)
 			if err := os.MkdirAll(combinedStagingDir, 0o755); err != nil {
@@ -409,6 +410,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				args = append(args, combinedInputPath)
 
 				stageStart, stageEnd = 40, 98
+				lastProgress = -1
 				emitPhase("Subiendo a Usenet (Uploading)")
 				emitProgress(stageStart)
 				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("nyuu: %s %s", r.NyuuPath, strings.Join(args[:min(10, len(args))], " ")))
