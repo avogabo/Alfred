@@ -662,8 +662,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (logsFilter) logsFilter.oninput = () => refreshLogsJobs().catch(() => {});
     const logsStateFilter = document.getElementById('logsStateFilter');
     if (logsStateFilter) logsStateFilter.onchange = () => refreshLogsJobs().catch(() => {});
-    const btnRequeue = document.getElementById('btnLogsRequeueMedia');
-    if (btnRequeue) btnRequeue.onclick = () => resetMediaRequeueMarks().catch(err => alert(String(err)));
   }
 
   // Load imports + review initially
