@@ -77,16 +77,12 @@ func (s *Server) registerUploadSummaryRoutes() {
 			lastLine := ""
 			if len(lines) > 0 {
 				lastLine = lines[0]
-				for i := len(lines) - 1; i >= 0; i-- {
-					l := strings.TrimSpace(lines[i])
-					if strings.HasPrefix(l, "PHASE:") {
+				for _, raw := range lines {
+					l := strings.TrimSpace(raw)
+					if phase == "" && strings.HasPrefix(l, "PHASE:") {
 						phase = strings.TrimSpace(strings.TrimPrefix(l, "PHASE:"))
-						break
 					}
-				}
-				for i := len(lines) - 1; i >= 0; i-- {
-					l := strings.TrimSpace(lines[i])
-					if strings.HasPrefix(l, "PROGRESS:") {
+					if progress == 0 && strings.HasPrefix(l, "PROGRESS:") {
 						v := strings.TrimSpace(strings.TrimPrefix(l, "PROGRESS:"))
 						for j := 0; j < len(v); j++ {
 							if v[j] < '0' || v[j] > '9' { v = v[:j]; break }
@@ -96,12 +92,19 @@ func (s *Server) registerUploadSummaryRoutes() {
 							_, _ = fmt.Sscanf(v, "%d", &n)
 							if n >= 0 && n <= 100 { progress = n }
 						}
+					}
+					if phase != "" && progress > 0 {
 						break
 					}
 				}
 			}
 
-			if strings.TrimSpace(phase) == "" && j.Type == jobs.TypeUpload {
+			if j.State == jobs.StateDone {
+				progress = 100
+				if strings.TrimSpace(phase) == "" {
+					phase = "Completado"
+				}
+			} else if strings.TrimSpace(phase) == "" && j.Type == jobs.TypeUpload {
 				phase = "UPLOAD"
 			}
 

@@ -179,9 +179,6 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 			_ = jobsStore.AppendLog(ctx, jobID, fmt.Sprintf("copied %d file(s) to local cache: %s", copiedCount, copiedPath))
 			_ = jobsStore.AppendLog(ctx, jobID, "PHASE: Generando PAR (Generating PAR)")
 		}
-		if emitProgress != nil {
-			emitProgress(0)
-		}
 	}
 	if cleanupPath != "" {
 		defer os.RemoveAll(cleanupPath)
