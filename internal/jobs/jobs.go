@@ -194,3 +194,32 @@ func (s *Store) GetLogs(ctx context.Context, jobID string, limit int) ([]string,
 	}
 	return out, rows.Err()
 }
+
+func (s *Store) DeleteLogs(ctx context.Context, jobIDs []string) (int64, error) {
+	if len(jobIDs) == 0 {
+		res, err := s.db.SQL.ExecContext(ctx, `DELETE FROM job_logs`)
+		if err != nil {
+			return 0, err
+		}
+		return res.RowsAffected()
+	}
+	placeholders := make([]string, 0, len(jobIDs))
+	args := make([]any, 0, len(jobIDs))
+	for _, id := range jobIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	if len(placeholders) == 0 {
+		return 0, nil
+	}
+	q := `DELETE FROM job_logs WHERE job_id IN (` + strings.Join(placeholders, ",") + `)`
+	res, err := s.db.SQL.ExecContext(ctx, q, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

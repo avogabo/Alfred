@@ -220,7 +220,8 @@ async function saveUploadSettings() {
 async function refreshLogsJobs() {
   const state = String(document.getElementById('logsStateFilter')?.value || '').trim();
   const filter = String(document.getElementById('logsFilter')?.value || '').trim().toLowerCase();
-  const data = await apiGet(`/api/v1/jobs?limit=80${state ? `&state=${encodeURIComponent(state)}` : ''}`);
+  const limit = filter ? 500 : 25;
+  const data = await apiGet(`/api/v1/jobs?limit=${limit}${state ? `&state=${encodeURIComponent(state)}` : ''}`);
   const box = document.getElementById('logsJobs');
   if (!box) return;
   box.innerHTML = '';
@@ -236,7 +237,12 @@ async function refreshLogsJobs() {
     if (filter && !hay.includes(filter)) continue;
 
     const row = el('div', { class: 'listRow' });
-    row.style.gridTemplateColumns = '90px 120px 110px 1fr 110px';
+    row.style.gridTemplateColumns = '40px 90px 120px 110px 1fr 110px';
+    const pick = document.createElement('input');
+    pick.type = 'checkbox';
+    pick.className = 'logsPick';
+    pick.value = String(j.id || '');
+    row.appendChild(pick);
     row.appendChild(el('div', { class: 'mono', text: String(j.id || '').slice(0, 8) }));
     row.appendChild(el('div', { class: 'mono muted', text: j.type || '' }));
     row.appendChild(el('div', { class: 'mono muted', text: j.state || '' }));
@@ -244,7 +250,7 @@ async function refreshLogsJobs() {
     const btn = el('button', { class: 'btn', text: 'Ver logs' });
     btn.onclick = async () => {
       setStatus('logsStatus', 'Cargando logs...');
-      const limit = _num(document.getElementById('logsLimit')?.value || 400) || 400;
+      const limit = filter ? (_num(document.getElementById('logsLimit')?.value || 400) || 400) : 25;
       const resp = await apiGet(`/api/v1/jobs/${j.id}/logs?limit=${limit}`);
       const out = document.getElementById('logsOut');
       const title = document.getElementById('logsTitle');
@@ -257,7 +263,24 @@ async function refreshLogsJobs() {
     box.appendChild(row);
   }
 
-  setStatus('logsStatus', `Jobs: ${box.children.length}`);
+  setStatus('logsStatus', `Jobs: ${box.children.length}${filter ? ' (filtrado completo)' : ' (últimos 25)'}`);
+}
+
+async function deleteSelectedLogs(all = false) {
+  const ids = all ? [] : Array.from(document.querySelectorAll('.logsPick:checked')).map(n => n.value).filter(Boolean);
+  if (!all && ids.length === 0) return;
+  const ok = confirm(all ? '¿Borrar todos los logs de jobs?' : `¿Borrar logs de ${ids.length} job(s)?`);
+  if (!ok) return;
+  await fetch('/api/v1/jobs', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(all ? { all: true } : { job_ids: ids })
+  });
+  const out = document.getElementById('logsOut');
+  const title = document.getElementById('logsTitle');
+  if (out) out.textContent = '';
+  if (title) title.textContent = 'Selecciona un job para ver sus logs.';
+  await refreshLogsJobs();
 }
 
 async function resetMediaRequeueMarks() {
@@ -662,6 +685,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (logsFilter) logsFilter.oninput = () => refreshLogsJobs().catch(() => {});
     const logsStateFilter = document.getElementById('logsStateFilter');
     if (logsStateFilter) logsStateFilter.onchange = () => refreshLogsJobs().catch(() => {});
+    const btnDeleteSelected = document.getElementById('btnLogsDeleteSelected');
+    if (btnDeleteSelected) btnDeleteSelected.onclick = () => deleteSelectedLogs(false).catch(err => alert(String(err)));
+    const btnDeleteAll = document.getElementById('btnLogsDeleteAll');
+    if (btnDeleteAll) btnDeleteAll.onclick = () => deleteSelectedLogs(true).catch(err => alert(String(err)));
   }
 
   // Load imports + review initially

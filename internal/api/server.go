@@ -189,6 +189,27 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(items)
+		case http.MethodDelete:
+			var req struct {
+				JobIDs []string `json:"job_ids"`
+				All    bool     `json:"all"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			var (
+				deleted int64
+				err     error
+			)
+			if req.All {
+				deleted, err = s.jobs.DeleteLogs(r.Context(), nil)
+			} else {
+				deleted, err = s.jobs.DeleteLogs(r.Context(), req.JobIDs)
+			}
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "deleted": deleted})
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
