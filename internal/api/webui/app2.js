@@ -135,7 +135,7 @@ async function loadUploadSettings() {
   setVal('setParRedundancy', par.redundancy_percent || 20);
   setChk('setParKeepFiles', !!par.keep_parity_files);
   setVal('setParDir', par.dir || '/host/inbox/par2');
-  setVal('setParMediaPathMode', par.media_path_mode || 'local');
+  setVal('setParMediaPathMode', par.media_path_mode || 'auto');
 
   setChk('setTMDBEnabled', !!tm.enabled);
   setVal('setTMDBApiKey', '');
@@ -192,7 +192,7 @@ async function saveUploadSettings() {
   cfg.upload.par.redundancy_percent = _num(val('setParRedundancy')) || 20;
   cfg.upload.par.keep_parity_files = chk('setParKeepFiles');
   cfg.upload.par.dir = val('setParDir').trim();
-  cfg.upload.par.media_path_mode = val('setParMediaPathMode') || 'local';
+  cfg.upload.par.media_path_mode = val('setParMediaPathMode') || 'auto';
 
   cfg.metadata.tmdb.enabled = chk('setTMDBEnabled');
   cfg.metadata.tmdb.language = val('setTMDBLanguage').trim();

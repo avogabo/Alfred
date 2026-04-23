@@ -71,7 +71,7 @@ func (s *Server) registerUploadSummaryRoutes() {
 				}
 			}
 
-			lines, _ := s.jobs.GetLogs(r.Context(), j.ID, 20)
+			lines, _ := s.jobs.GetLogs(r.Context(), j.ID, 100)
 			phase := ""
 			progress := 0
 			lastLine := ""

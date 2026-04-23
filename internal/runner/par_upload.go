@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -121,6 +122,32 @@ func copyFilePreserve(src string, dst string) error {
 	return os.Chtimes(dst, time.Now(), st.ModTime())
 }
 
+func effectiveMediaPathMode(inputPath string, configured string) string {
+	mode := strings.ToLower(strings.TrimSpace(configured))
+	if mode != "" && mode != "auto" {
+		return mode
+	}
+	if st, err := os.Stat(inputPath); err == nil {
+		_ = st
+		if out, err := runCommandOutput("stat", "-f", "-c", "%T", inputPath); err == nil {
+			fsType := strings.ToLower(strings.TrimSpace(out))
+			if strings.Contains(fsType, "fuse") || strings.Contains(fsType, "rclone") {
+				return "rclone"
+			}
+		}
+	}
+	return "local"
+}
+
+func runCommandOutput(name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	b, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 func collectParStagingFiles(parStagingDir string, baseName string) ([]string, error) {
 	entries, err := os.ReadDir(parStagingDir)
 	if err != nil {
@@ -149,12 +176,13 @@ func generateParFiles(ctx context.Context, jobsStore *jobs.Store, jobID string, 
 
 	workInputPath := inputPath
 	cleanupPath := ""
-	if strings.EqualFold(strings.TrimSpace(cfg.Upload.Par.MediaPathMode), "rclone") {
+	mediaPathMode := effectiveMediaPathMode(inputPath, cfg.Upload.Par.MediaPathMode)
+	if strings.EqualFold(mediaPathMode, "rclone") {
 		localRoot := filepath.Join(cacheDir, "par-input", jobID)
 		_ = os.MkdirAll(localRoot, 0o755)
 		cleanupPath = localRoot
 		if jobsStore != nil {
-			_ = jobsStore.AppendLog(ctx, jobID, "media_path_mode=rclone; copiando input a cache local antes de generar PAR")
+			_ = jobsStore.AppendLog(ctx, jobID, "media_path_mode=rclone(auto); copiando input a cache local antes de generar PAR")
 		}
 		lastCopyProgress := -1
 		copiedPath, copiedCount, copyErr := prepareParLocalInput(inputPath, localRoot, func(doneBytes, totalBytes int64) {

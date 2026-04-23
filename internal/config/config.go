@@ -32,7 +32,7 @@ type UploadPar struct {
 	RedundancyPercent   int    `json:"redundancy_percent"` // e.g. 20
 	KeepParityFiles     bool   `json:"keep_parity_files"`
 	Dir                 string `json:"dir"`                   // where to store parity files if KeepParityFiles=true (e.g. /host/inbox/par2)
-	MediaPathMode       string `json:"media_path_mode"`       // local | rclone
+	MediaPathMode       string `json:"media_path_mode"`       // auto | local | rclone
 }
 
 type Upload struct {
