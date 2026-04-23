@@ -226,6 +226,7 @@ async function refreshLogsJobs() {
   if (!box) return;
   box.innerHTML = '';
 
+  let shown = 0;
   for (const j of (data || [])) {
     const path = (() => {
       try {
@@ -261,6 +262,8 @@ async function refreshLogsJobs() {
     const act = el('div'); act.appendChild(btn);
     row.appendChild(act);
     box.appendChild(row);
+    shown += 1;
+    if (!filter && shown >= 10) break;
   }
 
   setStatus('logsStatus', `Jobs: ${box.children.length}${filter ? ' (filtrado completo)' : ' (últimos 10)'}`);
