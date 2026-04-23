@@ -164,7 +164,7 @@ func New(cfg config.Config, opts Options) (*Server, func() error, error) {
 		}
 		switch r.Method {
 		case http.MethodGet:
-			limit := 40
+			limit := 10
 			if q := strings.TrimSpace(r.URL.Query().Get("limit")); q != "" {
 				if n, err := strconv.Atoi(q); err == nil {
 					if n > 0 && n <= 500 {
