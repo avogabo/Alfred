@@ -466,10 +466,17 @@ async function refreshUploadPanels() {
     progressFill.style.minHeight = '10px';
     progressBar.appendChild(progressFill);
     progressWrap.appendChild(progressBar);
+    const detectedBits = [];
+    if (it.detected_kind) detectedBits.push(it.detected_kind);
+    if (it.detected_title) detectedBits.push(it.detected_title + (it.detected_year ? ` (${it.detected_year})` : ''));
+    if (it.detected_season || it.detected_episode) detectedBits.push(`S${String(it.detected_season || 0).padStart(2,'0')}E${String(it.detected_episode || 0).padStart(2,'0')}`);
     progressWrap.appendChild(el('div', { class: 'progressMeta' }, [
       el('div', { class: 'mono muted', text: it.phase || it.state || '' }),
       el('div', { class: 'mono muted', text: it.updated_at || '' })
     ]));
+    if (detectedBits.length) {
+      progressWrap.appendChild(el('div', { class: 'mono muted', text: `Detectado: ${detectedBits.join(' · ')}` }));
+    }
     row.appendChild(progressWrap);
     box.appendChild(row);
   };

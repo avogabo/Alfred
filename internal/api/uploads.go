@@ -4,21 +4,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/avogabo/AlfredEDR/internal/jobs"
+	"github.com/avogabo/AlfredEDR/internal/library"
 )
 
 type uploadSummary struct {
-	ID        string      `json:"id"`
-	State     jobs.State  `json:"state"`
-	UpdatedAt string      `json:"updated_at"`
-	Path      string      `json:"path"`
-	Phase     string      `json:"phase"`
-	Progress  int         `json:"progress"`
-	LastLine  string      `json:"last_line"`
-	Error     *string     `json:"error,omitempty"`
+	ID              string      `json:"id"`
+	State           jobs.State  `json:"state"`
+	UpdatedAt       string      `json:"updated_at"`
+	Path            string      `json:"path"`
+	Phase           string      `json:"phase"`
+	Progress        int         `json:"progress"`
+	LastLine        string      `json:"last_line"`
+	Error           *string     `json:"error,omitempty"`
+	DetectedKind    string      `json:"detected_kind,omitempty"`
+	DetectedTitle   string      `json:"detected_title,omitempty"`
+	DetectedYear    int         `json:"detected_year,omitempty"`
+	DetectedSeason  int         `json:"detected_season,omitempty"`
+	DetectedEpisode int         `json:"detected_episode,omitempty"`
 }
 
 func (s *Server) registerUploadSummaryRoutes() {
@@ -75,6 +82,7 @@ func (s *Server) registerUploadSummaryRoutes() {
 			phase := ""
 			progress := 0
 			lastLine := ""
+			guess := library.GuessFromFilename(filepath.Base(jobPath))
 			if len(lines) > 0 {
 				lastLine = lines[0]
 				for _, raw := range lines {
@@ -101,22 +109,35 @@ func (s *Server) registerUploadSummaryRoutes() {
 
 			if j.State == jobs.StateDone {
 				progress = 100
-				if strings.TrimSpace(phase) == "" {
+				if strings.TrimSpace(phase) == "" || strings.Contains(strings.ToLower(phase), "moviendo nzb") {
 					phase = "Completado"
 				}
 			} else if strings.TrimSpace(phase) == "" && j.Type == jobs.TypeUpload {
-				phase = "UPLOAD"
+				phase = "En subida"
 			}
 
+			kind := "película"
+			if guess.IsSeries {
+				if guess.Episode > 0 {
+					kind = "episodio"
+				} else {
+					kind = "serie"
+				}
+			}
 			out = append(out, uploadSummary{
-				ID:        j.ID,
-				State:     j.State,
-				UpdatedAt: j.UpdatedAt.Format(time.RFC3339),
-				Path:      jobPath,
-				Phase:     phase,
-				Progress:  progress,
-				LastLine:  lastLine,
-				Error:     j.Error,
+				ID:              j.ID,
+				State:           j.State,
+				UpdatedAt:       j.UpdatedAt.Format(time.RFC3339),
+				Path:            jobPath,
+				Phase:           phase,
+				Progress:        progress,
+				LastLine:        lastLine,
+				Error:           j.Error,
+				DetectedKind:    kind,
+				DetectedTitle:   guess.Title,
+				DetectedYear:    guess.Year,
+				DetectedSeason:  guess.Season,
+				DetectedEpisode: guess.Episode,
 			})
 		}
 
