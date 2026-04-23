@@ -220,7 +220,7 @@ async function saveUploadSettings() {
 async function refreshLogsJobs() {
   const state = String(document.getElementById('logsStateFilter')?.value || '').trim();
   const filter = String(document.getElementById('logsFilter')?.value || '').trim().toLowerCase();
-  const limit = filter ? 500 : 25;
+  const limit = filter ? 500 : 10;
   const data = await apiGet(`/api/v1/jobs?limit=${limit}${state ? `&state=${encodeURIComponent(state)}` : ''}`);
   const box = document.getElementById('logsJobs');
   if (!box) return;
@@ -250,7 +250,7 @@ async function refreshLogsJobs() {
     const btn = el('button', { class: 'btn', text: 'Ver logs' });
     btn.onclick = async () => {
       setStatus('logsStatus', 'Cargando logs...');
-      const limit = filter ? (_num(document.getElementById('logsLimit')?.value || 400) || 400) : 25;
+      const limit = filter ? (_num(document.getElementById('logsLimit')?.value || 400) || 400) : 10;
       const resp = await apiGet(`/api/v1/jobs/${j.id}/logs?limit=${limit}`);
       const out = document.getElementById('logsOut');
       const title = document.getElementById('logsTitle');
@@ -263,7 +263,7 @@ async function refreshLogsJobs() {
     box.appendChild(row);
   }
 
-  setStatus('logsStatus', `Jobs: ${box.children.length}${filter ? ' (filtrado completo)' : ' (últimos 25)'}`);
+  setStatus('logsStatus', `Jobs: ${box.children.length}${filter ? ' (filtrado completo)' : ' (últimos 10)'}`);
 }
 
 async function deleteSelectedLogs(all = false) {
