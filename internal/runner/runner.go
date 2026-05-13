@@ -374,6 +374,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			_ = r.jobs.SetFailed(ctx, j.ID, msg)
 			return
 		}
+		defer cleanupCombined()
 
 		// Provider implementation
 		if provider == "nyuu" {
