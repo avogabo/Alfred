@@ -370,6 +370,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 
 		if err := buildCombinedPayload(); err != nil {
 			msg := err.Error()
+			cleanupCombined()
 			_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
 			_ = r.jobs.SetFailed(ctx, j.ID, msg)
 			return
