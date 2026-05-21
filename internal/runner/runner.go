@@ -311,7 +311,16 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		combinedInputPath := p.Path
 		combinedStagingDir := ""
 		cleanupCombined := func() {}
+		precleanUploadCache := func() {
+			_ = os.RemoveAll(filepath.Join(cacheDir, "upload-combined"))
+			_ = os.RemoveAll(filepath.Join(cacheDir, "par-staging"))
+			_ = os.RemoveAll(filepath.Join(cacheDir, "nzb-staging"))
+			_ = os.MkdirAll(filepath.Join(cacheDir, "upload-combined"), 0o755)
+			_ = os.MkdirAll(filepath.Join(cacheDir, "par-staging"), 0o755)
+			_ = os.MkdirAll(filepath.Join(cacheDir, "nzb-staging"), 0o755)
+		}
 		buildCombinedPayload := func() error {
+			precleanUploadCache()
 			lastProgress = -1
 			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
 			_ = os.RemoveAll(combinedStagingDir)
