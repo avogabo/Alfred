@@ -319,8 +319,46 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			_ = os.MkdirAll(filepath.Join(cacheDir, "par-staging"), 0o755)
 			_ = os.MkdirAll(filepath.Join(cacheDir, "nzb-staging"), 0o755)
 		}
+		getFilesystemFreeBytes := func(path string) int64 {
+			var st syscall.Statfs_t
+			if err := syscall.Statfs(path, &st); err != nil {
+				return -1
+			}
+			return int64(st.Bavail) * int64(st.Bsize)
+		}
+		estimatePathBytes := func(path string) int64 {
+			var total int64
+			_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+				if err != nil || info == nil {
+					return nil
+				}
+				if info.Mode().IsRegular() {
+					total += info.Size()
+				}
+				return nil
+			})
+			return total
+		}
 		buildCombinedPayload := func() error {
 			precleanUploadCache()
+			inputBytes := estimatePathBytes(p.Path)
+			freeBytes := getFilesystemFreeBytes(cacheDir)
+			needsHDDCache := false
+			if parEnabled {
+				estimatedNeed := inputBytes*3 + (inputBytes*int64(cfg.Upload.Par.RedundancyPercent))/100
+				if freeBytes > 0 && estimatedNeed > freeBytes {
+					needsHDDCache = true
+				}
+			}
+			if needsHDDCache {
+				cacheDir = "/cache2"
+				_ = os.MkdirAll(filepath.Join(cacheDir, "upload-combined"), 0o755)
+				_ = os.MkdirAll(filepath.Join(cacheDir, "par-staging"), 0o755)
+				_ = os.MkdirAll(filepath.Join(cacheDir, "nzb-staging"), 0o755)
+				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("cache auto-switch: estimated need=%d bytes, free on /cache=%d bytes, using /cache2", inputBytes*3+(inputBytes*int64(cfg.Upload.Par.RedundancyPercent))/100, freeBytes))
+			} else if parEnabled {
+				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("cache auto-keep: estimated need=%d bytes, free on /cache=%d bytes, using /cache", inputBytes*3+(inputBytes*int64(cfg.Upload.Par.RedundancyPercent))/100, freeBytes))
+			}
 			lastProgress = -1
 			combinedStagingDir = filepath.Join(cacheDir, "upload-combined", j.ID)
 			_ = os.RemoveAll(combinedStagingDir)
@@ -396,9 +434,15 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				if ng.Connections > 0 {
 					mediaConns := ng.Connections
 					parConns := ng.Connections / 10
-					if parConns < 1 { parConns = 1 }
-					if parConns > 5 { parConns = 5 }
-					if ng.Connections > 5 { mediaConns = ng.Connections - parConns }
+					if parConns < 1 {
+						parConns = 1
+					}
+					if parConns > 5 {
+						parConns = 5
+					}
+					if ng.Connections > 5 {
+						mediaConns = ng.Connections - parConns
+					}
 					args = append(args, "-n", fmt.Sprintf("%d", mediaConns))
 				}
 				if ng.Groups != "" {
@@ -510,9 +554,15 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				if ng.Connections > 0 {
 					mediaConns := ng.Connections
 					parConns := ng.Connections / 10
-					if parConns < 1 { parConns = 1 }
-					if parConns > 5 { parConns = 5 }
-					if ng.Connections > 5 { mediaConns = ng.Connections - parConns }
+					if parConns < 1 {
+						parConns = 1
+					}
+					if parConns > 5 {
+						parConns = 5
+					}
+					if ng.Connections > 5 {
+						mediaConns = ng.Connections - parConns
+					}
 					args = append(args, "-n", fmt.Sprintf("%d", mediaConns))
 				}
 				if ng.Threads > 0 {
@@ -646,7 +696,7 @@ func moveNZBStagingToFinal(stagingPath, finalPath string) (string, error) {
 }
 
 func cloneTreeFlat(src, dst string) error {
-		return cloneTreeFlatWithProgress(src, dst, nil)
+	return cloneTreeFlatWithProgress(src, dst, nil)
 }
 
 func cloneTreeFlatWithProgress(src, dst string, onProgress func(doneBytes, totalBytes int64)) error {
