@@ -462,6 +462,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				}, r.NyuuPath, args...)
 				if err != nil {
 					msg := err.Error()
+					cleanupCombined()
 					_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
 					_ = r.jobs.SetFailed(ctx, j.ID, msg)
 					return
@@ -473,6 +474,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 					_, err = moveNZBStagingToFinal(stagingNZB, finalNZB)
 					if err != nil {
 						msg := err.Error()
+						cleanupCombined()
 						_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: move nzb: "+msg)
 						_ = r.jobs.SetFailed(ctx, j.ID, msg)
 						return
@@ -543,6 +545,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				}, r.NgPostPath, args...)
 				if err != nil {
 					msg := err.Error()
+					cleanupCombined()
 					_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: "+msg)
 					_ = r.jobs.SetFailed(ctx, j.ID, msg)
 					return
@@ -557,6 +560,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				_, err = moveNZBStagingToFinal(produced, finalNZB)
 				if err != nil {
 					msg := err.Error()
+					cleanupCombined()
 					_ = r.jobs.AppendLog(ctx, j.ID, "ERROR: move nzb: "+msg)
 					_ = r.jobs.SetFailed(ctx, j.ID, msg)
 					return
