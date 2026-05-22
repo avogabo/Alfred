@@ -8,6 +8,7 @@ COPY . .
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
+ARG CACHE_BUST=1
 RUN go build -ldflags "-X github.com/avogabo/AlfredEDR/internal/version.Version=${VERSION} -X github.com/avogabo/AlfredEDR/internal/version.Commit=${COMMIT} -X github.com/avogabo/AlfredEDR/internal/version.Date=${BUILD_DATE}" -o /out/alfrededr ./cmd/alfrededr
 
 # Health tool (included in image)
