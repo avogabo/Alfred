@@ -263,6 +263,11 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 		stagingDir := filepath.Join(cacheDir, "nzb-staging")
 		_ = os.MkdirAll(stagingDir, 0o755)
 		stagingNZB := filepath.Join(stagingDir, fmt.Sprintf("%s-%s.nzb", base, j.ID))
+		setStagingNZBToCurrentCache := func() {
+			stagingDir = filepath.Join(cacheDir, "nzb-staging")
+			_ = os.MkdirAll(stagingDir, 0o755)
+			stagingNZB = filepath.Join(stagingDir, fmt.Sprintf("%s-%s.nzb", base, j.ID))
+		}
 		if st, err := os.Stat(finalNZB); err == nil && st.Size() > 0 {
 			_ = r.jobs.AppendLog(ctx, j.ID, "nzb already exists at target path; skipping new upload to avoid duplicates: "+finalNZB)
 			_ = r.jobs.SetDone(ctx, j.ID)
@@ -356,6 +361,7 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 				_ = os.MkdirAll(filepath.Join(cacheDir, "upload-combined"), 0o755)
 				_ = os.MkdirAll(filepath.Join(cacheDir, "par-staging"), 0o755)
 				_ = os.MkdirAll(filepath.Join(cacheDir, "nzb-staging"), 0o755)
+				setStagingNZBToCurrentCache()
 				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("cache auto-switch: estimated need=%d bytes, free on /cache=%d bytes, using /cache2", inputBytes*3+(inputBytes*int64(cfg.Upload.Par.RedundancyPercent))/100, freeBytes))
 			} else if parEnabled {
 				_ = r.jobs.AppendLog(ctx, j.ID, fmt.Sprintf("cache auto-keep: estimated need=%d bytes, free on /cache=%d bytes, using /cache", inputBytes*3+(inputBytes*int64(cfg.Upload.Par.RedundancyPercent))/100, freeBytes))
