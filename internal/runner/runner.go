@@ -391,7 +391,9 @@ func (r *Runner) runUpload(ctx context.Context, j *jobs.Job) {
 			}
 			stageStart, stageEnd = 0, 35
 			emitPhase("Preparando payload (Preparing payload)")
-			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, cfg, p.Path, base, func(raw int) {
+			parCfg := cfg
+			parCfg.Paths.CacheDir = cacheDir
+			parStagingDir, _, perr := generateParFiles(ctx, r.jobs, j.ID, parCfg, p.Path, base, func(raw int) {
 				scaleProgress(stageStart, stageEnd, raw)
 			})
 			if perr != nil {
